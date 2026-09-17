@@ -1,0 +1,1202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a1f">
+<title>中秋祝福生成器 · 三种风格</title>
+<style>
+  /* ============================================================
+     中秋祝福生成器  moon_maker.html
+     输入模式 → 选风格 → 贺卡模式（三套视觉系统）
+     风格随 URL 参数一起分享，别人点开还原同样的贺卡
+     ============================================================ */
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  /* ---------- 三种风格的字体栈 ----------
+     cyber : 粗犷科技感（Bahnschrift 为 Windows 自带的科技风窄体）
+     ink   : 优雅书法（KaiTi / 楷体，回退衬线）
+     warm  : 圆润可爱（Arial Rounded 打头，中文回退到雅黑） */
+  :root {
+    --moon: min(38vmin, 190px, 23vh);
+    --font-ui: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+               "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --font-cyber: Bahnschrift, "DIN Alternate", Consolas, "Courier New",
+                  "Microsoft YaHei", monospace;
+    --font-ink: "KaiTi", "STKaiti", "Kaiti SC", "FangSong", "STFangsong",
+                Georgia, "Songti SC", "SimSun", serif;
+    --font-warm: "Arial Rounded MT Bold", "Yuanti SC", "Hiragino Maru Gothic ProN",
+                 "Microsoft YaHei UI", "Microsoft YaHei", -apple-system, sans-serif;
+  }
+
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+
+  body {
+    font-family: var(--font-ui);
+    color: #eaf2ff;
+    position: relative;
+    -webkit-user-select: none;
+    user-select: none;
+    transition: background 1s ease;
+  }
+
+  /* ============================================================
+     背景：按风格切换
+     ============================================================ */
+  body[data-style="cyber"] {
+    background:
+      radial-gradient(ellipse 65% 40% at 50% 16%, rgba(150, 40, 220, .38) 0%, rgba(0,0,0,0) 68%),
+      radial-gradient(ellipse 80% 50% at 12% 88%, rgba(0, 200, 255, .20) 0%, rgba(0,0,0,0) 70%),
+      linear-gradient(170deg, #0a0618 0%, #140a33 32%, #1d0b45 58%, #2a0b46 80%, #12061f 100%);
+    color: #e8f6ff;
+  }
+  body[data-style="ink"] {
+    background:
+      radial-gradient(ellipse 70% 45% at 50% 20%, rgba(255, 250, 235, .50) 0%, rgba(0,0,0,0) 70%),
+      radial-gradient(ellipse 90% 60% at 50% 106%, rgba(120, 110, 90, .30) 0%, rgba(0,0,0,0) 72%),
+      linear-gradient(172deg, #f4efe2 0%, #efe7d6 34%, #e6ddc9 62%, #d9cfb8 100%);
+    color: #2f2a22;
+  }
+  body[data-style="warm"] {
+    background:
+      radial-gradient(ellipse 70% 45% at 50% 18%, rgba(255, 235, 180, .70) 0%, rgba(0,0,0,0) 70%),
+      radial-gradient(ellipse 90% 55% at 50% 108%, rgba(255, 150, 90, .35) 0%, rgba(0,0,0,0) 72%),
+      linear-gradient(172deg, #fff1cf 0%, #ffe0ad 34%, #ffc98c 62%, #ffb277 100%);
+    color: #5a3413;
+  }
+
+  /* ============================================================
+     装饰层：星空 / 网格 / 扫描线 / 数字雨 / 花瓣 / 云
+     ============================================================ */
+  #stars, #grid, #scan, #rain, #petals, #clouds {
+    position: absolute; inset: 0; pointer-events: none; overflow: hidden;
+  }
+  #stars  { z-index: 0; }
+  #grid   { z-index: 0; opacity: 0; transition: opacity .8s ease; }
+  #scan   { z-index: 1; opacity: 0; transition: opacity .8s ease; }
+  #rain   { z-index: 2; opacity: 0; transition: opacity .8s ease; }
+  #clouds { z-index: 2; opacity: 0; transition: opacity .8s ease; }
+  #petals { z-index: 3; opacity: 0; transition: opacity .8s ease; }
+
+  body[data-style="cyber"] #grid,
+  body[data-style="cyber"] #scan,
+  body[data-style="cyber"] #rain { opacity: 1; }
+  body[data-style="ink"] #clouds,
+  body[data-style="ink"] #petals { opacity: 1; }
+  body[data-style="warm"] #stars,
+  body[data-style="warm"] #petals { opacity: 1; }
+
+  /* 所有风格都可以有星星，但古风要极淡 */
+  body[data-style="ink"] #stars { opacity: .18; }
+
+  /* 输入模式下收敛光效：数字雨调暗、网格减弱，
+     否则会叠在表单文字上影响可读性 */
+  body[data-style="cyber"].input-phase #rain { opacity: .40; }
+  body[data-style="cyber"].input-phase #grid { opacity: .38; }
+  body[data-style="cyber"].input-phase #scan { opacity: .45; }
+
+  /* 表单区域的底部压暗层：把背景装饰压下去，保证文字清晰 */
+  .app::before {
+    content: '';
+    position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    opacity: 0; transition: opacity .6s ease;
+    background: linear-gradient(to bottom,
+      rgba(6, 4, 20, 0) 0%, rgba(6, 4, 20, .45) 34%, rgba(6, 4, 20, .82) 100%);
+  }
+  body.input-phase .app::before { opacity: 1; }
+  body[data-style="ink"].input-phase .app::before {
+    background: linear-gradient(to bottom,
+      rgba(244, 239, 226, 0) 0%, rgba(244, 239, 226, .55) 34%, rgba(240, 233, 216, .90) 100%);
+  }
+  body[data-style="warm"].input-phase .app::before {
+    background: linear-gradient(to bottom,
+      rgba(255, 241, 207, 0) 0%, rgba(255, 236, 196, .55) 34%, rgba(255, 228, 182, .92) 100%);
+  }
+
+  /* 表单文字加一点投影，浅色/深色背景下都更清楚 */
+  .field label { text-shadow: 0 1px 3px rgba(0, 0, 0, .35); }
+  body[data-style="ink"] .field label,
+  body[data-style="warm"] .field label { text-shadow: 0 1px 2px rgba(255, 255, 255, .7); }
+
+  /* --- 星星 --- */
+  .star {
+    position: absolute; border-radius: 50%; background: #fff;
+    box-shadow: 0 0 6px rgba(255,255,255,.9);
+    animation: twinkle linear infinite;
+  }
+  @keyframes twinkle {
+    0%, 100% { opacity: .15; transform: scale(.7); }
+    50%      { opacity: var(--peak, 1); transform: scale(1.15); }
+  }
+
+  /* --- 赛博网格 --- */
+  #grid {
+    background-image:
+      linear-gradient(to right, rgba(0, 240, 255, .16) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 60, 200, .13) 1px, transparent 1px);
+    background-size: 44px 44px;
+    animation: gridDrift 22s linear infinite;
+  }
+  @keyframes gridDrift {
+    from { transform: translate3d(0,0,0); }
+    to   { transform: translate3d(44px, 44px, 0); }
+  }
+  /* --- 扫描线 --- */
+  #scan {
+    background: repeating-linear-gradient(to bottom,
+      rgba(0, 240, 255, .05) 0 1px, rgba(0,0,0,0) 1px 4px);
+    animation: scanShift 8s linear infinite;
+  }
+  @keyframes scanShift { from { transform: translateY(0); } to { transform: translateY(4px); } }
+
+  /* --- 数字雨 --- */
+  .rain-col {
+    position: absolute; top: -30%;
+    writing-mode: vertical-rl;
+    font-family: var(--font-cyber);
+    font-size: 13px;
+    letter-spacing: 3px;
+    color: rgba(120, 255, 240, .62);
+    text-shadow: 0 0 5px rgba(0, 240, 255, .55);
+    animation: rainFall linear infinite;
+    white-space: nowrap;
+  }
+  @keyframes rainFall {
+    from { transform: translateY(-40%); opacity: 0; }
+    10%  { opacity: .9; }
+    90%  { opacity: .9; }
+    to   { transform: translateY(190%); opacity: 0; }
+  }
+
+  /* --- 花瓣 / 粒子 --- */
+  .petal {
+    position: absolute; top: -8vh;
+    animation: petalFall linear infinite;
+    will-change: transform;
+  }
+  @keyframes petalFall {
+    0%   { transform: translate3d(0,0,0) rotate(0deg); opacity: 0; }
+    8%   { opacity: var(--o, .9); }
+    50%  { transform: translate3d(var(--dx, 30px), 55vh, 0) rotate(200deg); }
+    90%  { opacity: var(--o, .9); }
+    100% { transform: translate3d(0, 118vh, 0) rotate(430deg); opacity: 0; }
+  }
+
+  /* --- 流云（古风） --- */
+  .cloud {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at center,
+      rgba(255,252,245,.85) 0%, rgba(250,244,230,.45) 45%, rgba(0,0,0,0) 72%);
+    filter: blur(11px);
+    animation: cloudDrift linear infinite;
+  }
+  @keyframes cloudDrift {
+    0%   { transform: translateX(-45vw); opacity: 0; }
+    14%  { opacity: var(--o, .8); }
+    86%  { opacity: var(--o, .8); }
+    100% { transform: translateX(120vw); opacity: 0; }
+  }
+
+  /* ============================================================
+     月亮：机械月 / 水墨月 / 暖月
+     ============================================================ */
+  .moon-wrap {
+    position: absolute;
+    left: 50%;
+    top: clamp(52px, 12vh, 122px);
+    transform: translateX(-50%);
+    width: var(--moon);
+    height: var(--moon);
+    z-index: 1;
+    pointer-events: none;
+  }
+  .moon-halo {
+    position: absolute; left: 50%; top: 50%;
+    width: 300%; height: 300%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    filter: blur(7px);
+    animation: haloBreath 7s ease-in-out infinite;
+    transition: background .8s ease;
+  }
+  @keyframes haloBreath {
+    0%, 100% { opacity: .85; transform: translate(-50%,-50%) scale(1); }
+    50%      { opacity: 1;   transform: translate(-50%,-50%) scale(1.07); }
+  }
+  .moon {
+    position: absolute; inset: 0; border-radius: 50%;
+    transition: background .8s ease, box-shadow .8s ease;
+  }
+  .moon::before { content: ''; position: absolute; inset: 0; border-radius: 50%; transition: background .8s ease; }
+  .moon::after  { content: ''; position: absolute; inset: 0; border-radius: 50%; transition: background .8s ease; }
+  .bunny { position: absolute; display: none; }
+
+  /* --- A 赛博朋克：机械质感的月亮 --- */
+  body[data-style="cyber"] .moon-halo {
+    background: radial-gradient(circle,
+      rgba(160, 90, 255, .45) 0%, rgba(0, 220, 255, .28) 22%,
+      rgba(255, 60, 200, .14) 40%, rgba(0,0,0,0) 66%);
+  }
+  body[data-style="cyber"] .moon {
+    background:
+      radial-gradient(circle at 36% 30%, #cfe9ff 0%, #7fb6e8 30%, #3f6fb0 62%, #1b2b55 88%, #0d1730 100%);
+    box-shadow:
+      0 0 26px 5px rgba(0, 230, 255, .55),
+      0 0 72px 20px rgba(160, 60, 255, .40),
+      inset -12px -10px 28px rgba(0, 0, 0, .55),
+      inset 8px 7px 22px rgba(180, 240, 255, .35);
+  }
+  /* 月面上的数字网格 + 环形山 */
+  body[data-style="cyber"] .moon::before {
+    background-image:
+      linear-gradient(to right, rgba(0, 240, 255, .35) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(0, 240, 255, .28) 1px, transparent 1px),
+      radial-gradient(circle at 64% 60%, rgba(0,0,0,.38) 0 8%, rgba(0,0,0,0) 9%),
+      radial-gradient(circle at 30% 68%, rgba(0,0,0,.30) 0 6%, rgba(0,0,0,0) 7%);
+    background-size: 14px 14px, 14px 14px, 100% 100%, 100% 100%;
+    opacity: .85;
+  }
+  /* 青色描边 */
+  body[data-style="cyber"] .moon::after {
+    box-shadow: inset 0 0 0 2px rgba(0, 240, 255, .55), inset 0 0 22px rgba(0, 240, 255, .30);
+  }
+
+  /* --- B 唯美古风：水墨晕染的月亮 --- */
+  body[data-style="ink"] .moon-halo {
+    background: radial-gradient(circle,
+      rgba(255, 252, 240, .75) 0%, rgba(250, 243, 225, .42) 20%,
+      rgba(210, 200, 175, .18) 40%, rgba(0,0,0,0) 68%);
+  }
+  body[data-style="ink"] .moon {
+    background: radial-gradient(circle at 40% 34%,
+      rgba(255,255,250,.98) 0%, rgba(250,244,228,.92) 42%, rgba(228,218,196,.80) 70%, rgba(190,180,158,.55) 100%);
+    box-shadow: 0 0 40px 10px rgba(255, 250, 235, .55);
+    filter: blur(.4px);
+  }
+  /* 水墨笔触感的淡淡斑驳 */
+  body[data-style="ink"] .moon::before {
+    background:
+      radial-gradient(ellipse 26% 18% at 62% 58%, rgba(150, 140, 118, .30) 0%, rgba(0,0,0,0) 70%),
+      radial-gradient(ellipse 18% 14% at 34% 66%, rgba(150, 140, 118, .24) 0%, rgba(0,0,0,0) 70%),
+      radial-gradient(ellipse 30% 22% at 46% 38%, rgba(160, 150, 128, .16) 0%, rgba(0,0,0,0) 70%);
+    filter: blur(3px);
+  }
+
+  /* --- C 温馨插画：暖月 + 玉兔 --- */
+  body[data-style="warm"] .moon-halo {
+    background: radial-gradient(circle,
+      rgba(255, 236, 170, .80) 0%, rgba(255, 210, 130, .45) 20%,
+      rgba(255, 170, 90, .20) 40%, rgba(0,0,0,0) 68%);
+  }
+  body[data-style="warm"] .moon {
+    background: radial-gradient(circle at 34% 30%, #fffdf0 0%, #fff3c9 34%, #ffdf94 64%, #f6c05e 88%, #e0a544 100%);
+    box-shadow:
+      0 0 34px 8px rgba(255, 216, 120, .70),
+      0 0 90px 26px rgba(255, 180, 90, .35),
+      inset -12px -10px 28px rgba(200, 150, 60, .30),
+      inset 9px 7px 24px rgba(255, 255, 255, .55);
+  }
+  body[data-style="warm"] .moon::before {
+    background:
+      radial-gradient(circle at 64% 60%, rgba(214, 166, 86, .30) 0 8%, rgba(0,0,0,0) 9%),
+      radial-gradient(circle at 32% 68%, rgba(214, 166, 86, .24) 0 6%, rgba(0,0,0,0) 7%);
+  }
+  /* 玉兔剪影 */
+  body[data-style="warm"] .bunny {
+    display: block;
+    right: 16%;
+    top: 34%;
+    font-size: calc(var(--moon) * 0.20);
+    opacity: .75;
+    filter: drop-shadow(0 2px 3px rgba(150, 90, 20, .35));
+    animation: bunnyHop 3.6s ease-in-out infinite;
+  }
+  @keyframes bunnyHop {
+    0%, 100% { transform: translateY(0) rotate(-3deg); }
+    50%      { transform: translateY(-8%) rotate(3deg); }
+  }
+
+  /* ============================================================
+     布局
+     ============================================================ */
+  .app {
+    position: relative; z-index: 5;
+    height: 100%;
+    min-height: 100vh; min-height: 100dvh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: flex-end;
+    padding: 0 clamp(14px, 4.5vw, 26px) calc(18px + env(safe-area-inset-bottom));
+    overflow-y: auto;
+  }
+  .panel {
+    width: 100%; max-width: 400px;
+    display: flex; flex-direction: column; gap: 11px;
+  }
+  .mode { transition: opacity .45s ease, transform .45s ease; }
+  .mode[hidden] { display: none; }
+  .mode.out { opacity: 0; transform: translateY(16px); pointer-events: none; }
+
+  .title {
+    text-align: center; margin-bottom: 2px;
+  }
+  .title h1 {
+    font-size: clamp(19px, 5.6vw, 24px); font-weight: 700;
+    letter-spacing: 3px; font-family: var(--font-ui);
+  }
+  .title p {
+    font-size: clamp(11px, 3.2vw, 12.5px); letter-spacing: 2px;
+    opacity: .68; margin-top: 6px;
+  }
+
+  /* ---------- 表单 ---------- */
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: clamp(11px, 3.2vw, 12.5px); letter-spacing: 2px; opacity: .78; }
+  .field input, .field textarea {
+    width: 100%; font-family: inherit; font-size: 16px;   /* >=16px 防 iOS 聚焦放大 */
+    color: inherit;
+    background: rgba(255,255,255,.13);
+    border: 1px solid rgba(255,255,255,.30);
+    border-radius: 13px; padding: 11px 13px; outline: none;
+    transition: border-color .2s, background .2s, box-shadow .2s;
+    -webkit-user-select: text; user-select: text;
+  }
+  .field textarea { min-height: 70px; resize: none; line-height: 1.55; }
+  .field input::placeholder, .field textarea::placeholder { color: currentColor; opacity: .38; }
+  .field input:focus, .field textarea:focus {
+    border-color: rgba(255, 214, 130, .85);
+    background: rgba(255,255,255,.20);
+    box-shadow: 0 0 0 3px rgba(255, 214, 130, .16);
+  }
+  /* 浅色风格下输入框改为浅底深字 */
+  body[data-style="ink"] .field input, body[data-style="ink"] .field textarea {
+    background: rgba(255,255,255,.55); border-color: rgba(120,105,80,.32); color: #2f2a22;
+  }
+  body[data-style="warm"] .field input, body[data-style="warm"] .field textarea {
+    background: rgba(255,255,255,.60); border-color: rgba(180,120,50,.32); color: #5a3413;
+  }
+
+  /* ---------- 风格选择卡片 ---------- */
+  .chooser { display: flex; flex-direction: column; gap: 7px; }
+  .chooser > .lbl { font-size: clamp(11px, 3.2vw, 12.5px); letter-spacing: 2px; opacity: .78; }
+  .style-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .style-card {
+    position: relative;
+    display: block;
+    border-radius: 14px;
+    padding: 8px 6px 7px;
+    cursor: pointer;
+    border: 2px solid rgba(255,255,255,.22);
+    transition: transform .16s ease, border-color .2s ease, box-shadow .2s ease;
+    overflow: hidden;
+  }
+  .style-card:active { transform: scale(.97); }
+  .style-card input { position: absolute; opacity: 0; pointer-events: none; }
+  .style-card .swatch {
+    height: 34px; border-radius: 9px; margin-bottom: 6px;
+    position: relative; overflow: hidden;
+  }
+  .style-card .swatch::after {   /* 小月亮 */
+    content: ''; position: absolute; right: 6px; top: 5px;
+    width: 13px; height: 13px; border-radius: 50%;
+  }
+  .style-card .cname {
+    font-size: 11px; text-align: center; letter-spacing: .5px; line-height: 1.25;
+    font-weight: 700; color: inherit;
+  }
+  /* 选中态 */
+  .style-card.sel {
+    border-color: #ffd479;
+    box-shadow: 0 0 0 3px rgba(255,212,121,.20), 0 8px 20px rgba(0,0,0,.25);
+  }
+
+  /* A 赛博 缩略图 */
+  .style-card[data-style="cyber"] .swatch {
+    background: linear-gradient(150deg, #180a33, #2a0b46 60%, #0d1730);
+  }
+  .style-card[data-style="cyber"] .swatch::before {
+    content: ''; position: absolute; inset: 0;
+    background-image:
+      linear-gradient(to right, rgba(0,240,255,.4) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(0,240,255,.4) 1px, transparent 1px);
+    background-size: 9px 9px;
+  }
+  .style-card[data-style="cyber"] .swatch::after {
+    background: radial-gradient(circle at 35% 30%, #cfe9ff, #3f6fb0 70%, #1b2b55);
+    box-shadow: 0 0 8px rgba(0,230,255,.9);
+  }
+  /* B 古风 缩略图 */
+  .style-card[data-style="ink"] .swatch {
+    background: linear-gradient(160deg, #f7f2e6, #e3d9c4 70%, #cfc4ab);
+  }
+  .style-card[data-style="ink"] .swatch::before {
+    content: ''; position: absolute; left: -6px; bottom: -6px; width: 34px; height: 22px;
+    background: radial-gradient(ellipse at center, rgba(140,150,130,.35) 0%, rgba(0,0,0,0) 70%);
+    filter: blur(4px);
+  }
+  .style-card[data-style="ink"] .swatch::after {
+    background: radial-gradient(circle at 40% 34%, #fffdf8, #e8dfc9 75%);
+    box-shadow: 0 0 10px rgba(255,250,235,.9);
+  }
+  /* C 温馨 缩略图 */
+  .style-card[data-style="warm"] .swatch {
+    background: linear-gradient(160deg, #fff3d4, #ffd08f 70%, #ffb277);
+  }
+  .style-card[data-style="warm"] .swatch::after {
+    background: radial-gradient(circle at 34% 30%, #fffdf0, #ffdf94 70%, #e0a544);
+    box-shadow: 0 0 10px rgba(255,200,110,.95);
+  }
+
+  /* 浅色风格下卡片文字与边框适配 */
+  body[data-style="ink"] .style-card { border-color: rgba(120,105,80,.28); }
+  body[data-style="warm"] .style-card { border-color: rgba(180,120,50,.28); }
+
+  /* ---------- 按钮 ---------- */
+  .btn {
+    appearance: none; border: 0; cursor: pointer;
+    touch-action: manipulation; font-family: inherit;
+    font-size: 16px; font-weight: 700; letter-spacing: 2px;
+    padding: 14px 20px; border-radius: 999px;
+    transition: transform .16s ease, box-shadow .2s ease, background .3s ease, color .3s ease;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn-primary {
+    color: #4a2a06;
+    background: linear-gradient(135deg, #ffe6a8 0%, #ffd479 42%, #ffb84d 100%);
+    box-shadow: 0 10px 26px rgba(255,170,60,.34), 0 0 0 0 rgba(255,214,130,.6);
+    animation: goldPulse 2.6s ease-in-out infinite;
+  }
+  @keyframes goldPulse {
+    0%, 100% { box-shadow: 0 10px 26px rgba(255,170,60,.34), 0 0 0 0 rgba(255,214,130,.55); }
+    55%      { box-shadow: 0 10px 26px rgba(255,170,60,.34), 0 0 0 16px rgba(255,214,130,0); }
+  }
+  .btn-ghost {
+    background: rgba(255,255,255,.14);
+    border: 1px solid rgba(255,255,255,.30);
+    color: inherit; font-size: 14px; font-weight: 500; letter-spacing: 1px;
+    padding: 11px 18px;
+  }
+  body[data-style="ink"] .btn-ghost,
+  body[data-style="warm"] .btn-ghost {
+    background: rgba(255,255,255,.55); border-color: rgba(140,120,90,.35);
+  }
+
+  /* ============================================================
+     贺卡：三套皮肤
+     ============================================================ */
+  .card {
+    width: 100%; max-width: 420px;
+    border-radius: 22px;
+    padding: clamp(18px, 5vw, 26px) clamp(15px, 4.6vw, 24px);
+    text-align: center;
+    transition: background .6s ease, border-color .6s ease, box-shadow .6s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* --- A 赛博：发光边框 + 扫描线 --- */
+  body[data-style="cyber"] .card {
+    background: linear-gradient(165deg, rgba(50,15,90,.72) 0%, rgba(20,8,50,.78) 60%, rgba(10,20,50,.80) 100%);
+    border: 1px solid rgba(0, 240, 255, .55);
+    box-shadow:
+      0 0 24px rgba(0, 220, 255, .30),
+      inset 0 0 30px rgba(160, 60, 255, .22),
+      0 18px 46px rgba(0,0,0,.55);
+    backdrop-filter: blur(9px);
+    -webkit-backdrop-filter: blur(9px);
+    font-family: var(--font-cyber);
+  }
+  body[data-style="cyber"] .card::before {   /* 四角霓虹角标 */
+    content: ''; position: absolute; inset: 8px; pointer-events: none;
+    background:
+      linear-gradient(var(--n1), var(--n1)) 0 0 / 18px 2px no-repeat,
+      linear-gradient(var(--n1), var(--n1)) 0 0 / 2px 18px no-repeat,
+      linear-gradient(var(--n2), var(--n2)) 100% 0 / 18px 2px no-repeat,
+      linear-gradient(var(--n2), var(--n2)) 100% 0 / 2px 18px no-repeat,
+      linear-gradient(var(--n1), var(--n1)) 0 100% / 18px 2px no-repeat,
+      linear-gradient(var(--n1), var(--n1)) 0 100% / 2px 18px no-repeat,
+      linear-gradient(var(--n2), var(--n2)) 100% 100% / 18px 2px no-repeat,
+      linear-gradient(var(--n2), var(--n2)) 100% 100% / 2px 18px no-repeat;
+    --n1: #00f0ff; --n2: #ff3cc8;
+  }
+  body[data-style="cyber"] .to-line { color: #00f0ff; text-shadow: 0 0 12px rgba(0,240,255,.8); }
+  body[data-style="cyber"] .bless {
+    color: #eafcff;
+    text-shadow: 0 0 14px rgba(0,220,255,.60), 0 0 30px rgba(255,60,200,.35);
+    font-family: var(--font-cyber);
+    font-weight: 700;
+    letter-spacing: 2px;
+  }
+  body[data-style="cyber"] .sign-line { color: rgba(255,120,220,.92); text-shadow: 0 0 10px rgba(255,60,200,.55); }
+
+  /* --- B 古风：宣纸 + 墨框 --- */
+  body[data-style="ink"] .card {
+    background:
+      radial-gradient(ellipse 60% 40% at 20% 12%, rgba(255,255,255,.65) 0%, rgba(0,0,0,0) 70%),
+      linear-gradient(168deg, rgba(255,253,247,.90) 0%, rgba(250,244,231,.86) 55%, rgba(240,232,214,.88) 100%);
+    border: 1px solid rgba(120, 105, 80, .40);
+    box-shadow: 0 16px 40px rgba(90, 75, 50, .22), inset 0 0 40px rgba(200, 185, 155, .30);
+    font-family: var(--font-ink);
+  }
+  body[data-style="ink"] .card::before {   /* 内描边，像宣纸上的墨线 */
+    content: ''; position: absolute; inset: 9px; border-radius: 15px;
+    border: 1px solid rgba(120, 105, 80, .28);
+    pointer-events: none;
+  }
+  body[data-style="ink"] .to-line { color: #7a6440; }
+  body[data-style="ink"] .bless {
+    color: #2f2a22;
+    font-family: var(--font-ink);
+    font-weight: 600;
+    letter-spacing: 3px;
+    line-height: 1.85;
+    text-shadow: 0 1px 0 rgba(255,255,255,.8);
+    animation: inkFade 1.6s ease;
+  }
+  @keyframes inkFade { from { opacity: 0; filter: blur(3px); } to { opacity: 1; filter: blur(0); } }
+  body[data-style="ink"] .sign-line { color: #6b5738; font-family: var(--font-ink); letter-spacing: 2px; }
+
+  /* --- C 温馨：奶油卡片 + 圆角 --- */
+  body[data-style="warm"] .card {
+    background: linear-gradient(168deg, rgba(255,252,240,.94) 0%, rgba(255,240,210,.92) 55%, rgba(255,228,186,.94) 100%);
+    border: 2px solid rgba(255, 190, 120, .80);
+    box-shadow: 0 18px 42px rgba(190, 120, 50, .28), inset 0 1px 0 rgba(255,255,255,.9);
+    border-radius: 28px;
+    font-family: var(--font-warm);
+  }
+  body[data-style="warm"] .card::before {   /* 顶部一条小云朵装饰 */
+    content: '☁  🌕  ☁'; position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+    font-size: 13px; opacity: .55; letter-spacing: 4px; pointer-events: none;
+  }
+  body[data-style="warm"] .to-line { color: #d97a1f; }
+  body[data-style="warm"] .bless {
+    color: #6b3d12;
+    font-family: var(--font-warm);
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    line-height: 1.75;
+  }
+  body[data-style="warm"] .sign-line { color: #a9622a; }
+
+  /* 贺卡内通用 */
+  .to-line {
+    font-size: clamp(14px, 4.2vw, 17px); letter-spacing: 2px;
+    margin-bottom: 13px; font-weight: 700;
+  }
+  .bless {
+    min-height: 5.2em;
+    display: flex; align-items: center; justify-content: center;
+    font-size: clamp(16px, 4.8vw, 21px);
+    line-height: 1.7; white-space: pre-wrap; overflow-wrap: break-word;
+  }
+  .sign-line {
+    margin-top: 15px;
+    font-size: clamp(12.5px, 3.8vw, 14.5px);
+    letter-spacing: 1px;
+    opacity: 0; transition: opacity .8s ease;
+  }
+  .sign-line.show { opacity: 1; }
+
+  .cursor {
+    display: inline-block; width: 2px; height: 1em; margin-left: 3px;
+    background: currentColor; vertical-align: -.12em;
+    animation: blink .72s steps(1, end) infinite;
+  }
+  @keyframes blink { 0%, 50% { opacity: 1; } 50.01%, 100% { opacity: 0; } }
+
+  .card-actions { display: flex; flex-direction: column; gap: 9px; margin-top: 16px; }
+
+  .link-box { display: flex; flex-direction: column; gap: 4px; }
+  .link-input {
+    width: 100%; height: 36px;
+    font-family: var(--font-ui); font-size: 11px; line-height: 1.45;
+    color: inherit; opacity: .8;
+    background: rgba(255,255,255,.16);
+    border: 1px solid rgba(255,255,255,.28);
+    border-radius: 10px; padding: 7px 10px; outline: none; resize: none;
+    overflow-y: auto; word-break: break-all;
+    -webkit-user-select: text; user-select: text; cursor: text;
+  }
+  body[data-style="ink"] .link-input, body[data-style="warm"] .link-input {
+    background: rgba(255,255,255,.55); border-color: rgba(140,120,90,.32); opacity: 1;
+  }
+  .link-hint { font-size: 10px; letter-spacing: 1px; opacity: .5; text-align: center; }
+
+  .foot { margin-top: 12px; font-size: 11px; letter-spacing: 2px; opacity: .5; text-align: center; }
+
+  /* ---------- 提示条 ---------- */
+  .toast {
+    position: fixed; left: 50%; bottom: calc(26px + env(safe-area-inset-bottom));
+    transform: translate(-50%, 20px); z-index: 30;
+    max-width: 88vw; padding: 11px 18px; border-radius: 999px;
+    font-size: 13.5px; letter-spacing: .5px; font-family: var(--font-ui);
+    color: #24160a; background: linear-gradient(135deg, #ffe9b8, #ffd479);
+    box-shadow: 0 10px 26px rgba(0,0,0,.35);
+    opacity: 0; pointer-events: none;
+    transition: opacity .28s ease, transform .28s ease;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  @media (max-height: 660px) {
+    :root { --moon: min(32vmin, 140px, 19vh); }
+    .moon-wrap { top: clamp(40px, 9vh, 84px); }
+    .bless { min-height: 4.4em; }
+    .title h1 { font-size: 18px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .star, .petal, .rain-col, .cloud, .moon-halo, .btn-primary, .cursor, .bunny { animation: none !important; }
+    .moon-halo { opacity: 1; }
+  }
+</style>
+</head>
+<body data-style="cyber">
+
+  <div id="stars" aria-hidden="true"></div>
+  <div id="grid" aria-hidden="true"></div>
+  <div id="scan" aria-hidden="true"></div>
+  <div id="rain" aria-hidden="true"></div>
+  <div id="clouds" aria-hidden="true"></div>
+
+  <div class="moon-wrap" aria-hidden="true">
+    <div class="moon-halo"></div>
+    <div class="moon"></div>
+    <span class="bunny">🐇</span>
+  </div>
+
+  <div id="petals" aria-hidden="true"></div>
+
+  <div class="app">
+
+    <!-- ===================== 输入模式 ===================== -->
+    <section class="mode panel" id="inputMode">
+      <div class="title">
+        <h1>中秋祝福生成器</h1>
+        <p>写一句话 · 挑一种风格 · 寄一轮月</p>
+      </div>
+
+      <div class="chooser">
+        <span class="lbl">选择贺卡风格</span>
+        <div class="style-row" id="styleRow">
+          <label class="style-card sel" data-style="cyber">
+            <input type="radio" name="style" value="cyber" checked>
+            <span class="swatch"></span>
+            <span class="cname">赛博朋克</span>
+          </label>
+          <label class="style-card" data-style="ink">
+            <input type="radio" name="style" value="ink">
+            <span class="swatch"></span>
+            <span class="cname">唯美古风</span>
+          </label>
+          <label class="style-card" data-style="warm">
+            <input type="radio" name="style" value="warm">
+            <span class="swatch"></span>
+            <span class="cname">温馨插画</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="toInput">收卡人的名字</label>
+        <input id="toInput" type="text" maxlength="12" placeholder="比如：小明" autocomplete="off">
+      </div>
+
+      <div class="field">
+        <label for="msgInput">想对 TA 说的话</label>
+        <textarea id="msgInput" maxlength="60" placeholder="比如：中秋快乐，愿你天天开心"></textarea>
+      </div>
+
+      <div class="field">
+        <label for="fromInput">落款（可留空）</label>
+        <input id="fromInput" type="text" maxlength="12" placeholder="默认：一个想你的人" autocomplete="off">
+      </div>
+
+      <button class="btn btn-primary" id="makeBtn">生成专属中秋贺卡</button>
+      <div class="foot">三种风格任选 · 生成后可一键分享</div>
+    </section>
+
+    <!-- ===================== 贺卡模式 ===================== -->
+    <section class="mode panel" id="cardMode" hidden>
+      <div class="card">
+        <div class="to-line" id="toLine"></div>
+        <div class="bless" id="bless"></div>
+        <div class="sign-line" id="signLine"></div>
+      </div>
+
+      <div class="card-actions">
+        <button class="btn btn-primary" id="shareBtn">分享给 TA</button>
+        <div class="link-box" id="linkBox">
+          <textarea class="link-input" id="linkInput" readonly rows="1" aria-label="分享链接"></textarea>
+          <span class="link-hint" id="linkHint">长按 / 点击上面的链接即可复制</span>
+        </div>
+        <button class="btn btn-ghost" id="backBtn">换一种风格重做</button>
+      </div>
+      <div class="foot" id="styleFoot">🌕 但愿人长久，千里共婵娟</div>
+    </section>
+
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var reduceMotion = window.matchMedia &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function rnd(a, b) { return Math.random() * (b - a) + a; }
+  function $(id) { return document.getElementById(id); }
+
+  var STYLE_NAMES = { cyber: '赛博朋克', ink: '唯美古风', warm: '温馨插画' };
+
+  /* ============================================================
+     0. URL 参数：base64 打包成紧凑的 d 参数，风格也一起带上
+     ============================================================ */
+  function b64encode(str) {
+    var bytes = new TextEncoder().encode(str);
+    var bin = '';
+    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  function b64decode(s) {
+    s = s.replace(/-/g, '+').replace(/_/g, '/');
+    while (s.length % 4) s += '=';
+    var bin = atob(s);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder().decode(bytes);
+  }
+  function isValidStyle(s) { return !!STYLE_NAMES[s]; }
+
+  function readParams() {
+    var q = new URLSearchParams(window.location.search);
+
+    var d = q.get('d');
+    if (d) {
+      try {
+        var o = JSON.parse(b64decode(d));
+        return {
+          to: o.t || '', msg: o.m || '', from: o.f || '',
+          style: isValidStyle(o.s) ? o.s : ''
+        };
+      } catch (e) { /* 解不开则尝试明文参数 */ }
+    }
+    // 兼容明文写法 ?to=..&msg=..&from=..&style=..
+    function get(k) {
+      var v = q.get(k);
+      if (!v) return '';
+      try { return decodeURIComponent(v); } catch (e) { return v; }
+    }
+    var st = get('style');
+    return { to: get('to'), msg: get('msg'), from: get('from'), style: isValidStyle(st) ? st : '' };
+  }
+
+  function buildShareUrl(data) {
+    var base = window.location.href.split('#')[0].split('?')[0];
+    var payload = b64encode(JSON.stringify({
+      t: data.to || '', m: data.msg || '', f: data.from || '', s: data.style || 'cyber'
+    }));
+    return base + '?d=' + payload;
+  }
+
+  /* ============================================================
+     1. 背景装饰（一次性生成，用 CSS 按风格显隐）
+     ============================================================ */
+  (function buildStars() {
+    var layer = $('stars');
+    var n = window.innerWidth < 480 ? 80 : 130;
+    var frag = document.createDocumentFragment();
+    for (var i = 0; i < n; i++) {
+      var s = document.createElement('span');
+      s.className = 'star';
+      var size = rnd(1, 2.6);
+      s.style.width = size.toFixed(1) + 'px';
+      s.style.height = size.toFixed(1) + 'px';
+      s.style.left = rnd(0, 100).toFixed(2) + '%';
+      s.style.top = rnd(0, 100).toFixed(2) + '%';
+      s.style.setProperty('--peak', rnd(0.5, 1).toFixed(2));
+      s.style.animationDuration = rnd(1.6, 5).toFixed(2) + 's';
+      s.style.animationDelay = (-rnd(0, 5)).toFixed(2) + 's';
+      frag.appendChild(s);
+    }
+    layer.appendChild(frag);
+  })();
+
+  // 赛博：发光数字雨（纵向代码列）
+  (function buildRain() {
+    var layer = $('rain');
+    var GLYPHS = ['01001', '10110', '月', '11010', '01101', '花', '10011', '101', '团圆', '0110', '11001'];
+    var n = window.innerWidth < 480 ? 12 : 20;
+    var frag = document.createDocumentFragment();
+    for (var i = 0; i < n; i++) {
+      var col = document.createElement('span');
+      col.className = 'rain-col';
+      var txt = '';
+      var rows = Math.floor(rnd(6, 14));
+      for (var j = 0; j < rows; j++) {
+        txt += GLYPHS[Math.floor(Math.random() * GLYPHS.length)] + '\n';
+      }
+      col.textContent = txt;
+      col.style.left = rnd(-2, 99).toFixed(2) + 'vw';
+      col.style.fontSize = rnd(10, 15).toFixed(1) + 'px';
+      col.style.opacity = rnd(0.35, 0.85).toFixed(2);
+      var dur = rnd(7, 15);
+      col.style.animationDuration = dur.toFixed(2) + 's';
+      col.style.animationDelay = (-rnd(0, dur)).toFixed(2) + 's';
+      frag.appendChild(col);
+    }
+    layer.appendChild(frag);
+  })();
+
+  // 古风：缓缓飘动的流云
+  (function buildClouds() {
+    var layer = $('clouds');
+    var specs = [
+      { top: 8,  w: 46, h: 13, dur: 52 },
+      { top: 26, w: 60, h: 15, dur: 66 },
+      { top: 44, w: 38, h: 10, dur: 44 },
+      { top: 62, w: 54, h: 14, dur: 74 }
+    ];
+    var frag = document.createDocumentFragment();
+    specs.forEach(function (sp) {
+      var c = document.createElement('span');
+      c.className = 'cloud';
+      c.style.top = sp.top + '%';
+      c.style.width = sp.w + 'vw';
+      c.style.height = sp.h + 'vh';
+      c.style.setProperty('--o', rnd(0.5, 0.85).toFixed(2));
+      c.style.animationDuration = sp.dur + 's';
+      c.style.animationDelay = (-rnd(0, sp.dur)).toFixed(2) + 's';
+      frag.appendChild(c);
+    });
+    layer.appendChild(frag);
+  })();
+
+  /* 花瓣 / 粒子：按风格用不同造型
+     - ink  : 金色桂花花瓣
+     - cyber: 青蓝粒子 / 代码碎片
+     - warm : 闪烁小星与孔明灯 */
+  var petalLayer = $('petals');
+  function shapeFor(style, i) {
+    if (style === 'ink') {
+      return {
+        kind: 'petal',
+        bg: 'radial-gradient(ellipse at 35% 30%, #fff3cf 0%, #ffce5e 70%, rgba(255,180,70,0) 100%)',
+        w: rnd(7, 15), h: rnd(6, 15),
+        radius: '60% 40% 55% 45% / 55% 60% 40% 45%',
+        glow: '0 0 8px rgba(255,206,94,.55)'
+      };
+    }
+    if (style === 'cyber') {
+      var cyan = i % 3 === 0;
+      return {
+        kind: 'dot',
+        bg: cyan
+          ? 'radial-gradient(circle, #d9fbff 0%, #00e0ff 55%, rgba(0,200,255,0) 100%)'
+          : 'radial-gradient(circle, #ffd9f6 0%, #ff3cc8 55%, rgba(255,60,200,0) 100%)',
+        w: rnd(4, 10), h: rnd(4, 10),
+        radius: '50%',
+        glow: cyan ? '0 0 10px rgba(0,230,255,.9)' : '0 0 10px rgba(255,60,200,.85)'
+      };
+    }
+    // warm：小星 + 孔明灯交替
+    if (i % 4 === 0) {
+      return {
+        kind: 'lantern',
+        bg: 'radial-gradient(ellipse at 50% 35%, #fff6d0 0%, #ffc96b 60%, rgba(255,150,60,0) 100%)',
+        w: rnd(12, 20), h: rnd(16, 26),
+        radius: '46% 46% 52% 52% / 38% 38% 62% 62%',
+        glow: '0 0 14px rgba(255,190,90,.85)'
+      };
+    }
+    return {
+      kind: 'dot',
+      bg: 'radial-gradient(circle, #ffffff 0%, #ffe9a8 55%, rgba(255,220,140,0) 100%)',
+      w: rnd(5, 11), h: rnd(5, 11),
+      radius: '50%',
+      glow: '0 0 10px rgba(255,225,150,.9)'
+    };
+  }
+
+  function rebuildPetals(style) {
+    petalLayer.innerHTML = '';
+    var n = window.innerWidth < 480 ? 30 : 46;
+    var frag = document.createDocumentFragment();
+    for (var i = 0; i < n; i++) {
+      var sh = shapeFor(style, i);
+      var p = document.createElement('span');
+      p.className = 'petal';
+      var dur = rnd(9, 19);
+      p.style.left = rnd(-4, 100).toFixed(2) + 'vw';
+      p.style.width = sh.w.toFixed(1) + 'px';
+      p.style.height = sh.h.toFixed(1) + 'px';
+      p.style.borderRadius = sh.radius;
+      p.style.background = sh.bg;
+      p.style.boxShadow = sh.glow;
+      p.style.setProperty('--dx', rnd(-44, 44).toFixed(1) + 'px');
+      p.style.setProperty('--o', rnd(0.5, 0.95).toFixed(2));
+      p.style.animationDuration = dur.toFixed(2) + 's';
+      p.style.animationDelay = (-rnd(0, dur)).toFixed(2) + 's';
+      frag.appendChild(p);
+    }
+    petalLayer.appendChild(frag);
+  }
+
+  /* ============================================================
+     2. 风格选择
+     ============================================================ */
+  var currentStyle = 'cyber';
+  var styleCards = Array.prototype.slice.call(document.querySelectorAll('.style-card'));
+
+  function setStyle(style) {
+    if (!isValidStyle(style)) style = 'cyber';
+    currentStyle = style;
+    document.body.setAttribute('data-style', style);
+    // 主题色跟随风格（影响手机浏览器地址栏）
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) {
+      meta.setAttribute('content',
+        style === 'cyber' ? '#0a0618' : style === 'ink' ? '#f4efe2' : '#fff1cf');
+    }
+    styleCards.forEach(function (c) {
+      var on = c.getAttribute('data-style') === style;
+      c.classList.toggle('sel', on);
+      var input = c.querySelector('input');
+      if (input) input.checked = on;
+    });
+    rebuildPetals(style);
+    var foot = $('styleFoot');
+    if (foot) foot.textContent = '风格：' + STYLE_NAMES[style] + ' · 🌕 但愿人长久';
+  }
+
+  styleCards.forEach(function (c) {
+    c.addEventListener('click', function () { setStyle(c.getAttribute('data-style')); });
+  });
+
+  /* ============================================================
+     3. 提示条
+     ============================================================ */
+  var toastEl = $('toast');
+  var toastTimer = null;
+  function toast(text) {
+    toastEl.textContent = text;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove('show'); }, 2600);
+  }
+
+  /* ============================================================
+     4. 模式切换
+     ============================================================ */
+  var inputMode = $('inputMode');
+  var cardMode = $('cardMode');
+
+  // 输入模式时收敛背景光效，保证表单可读
+  function setPhase(isInput) {
+    document.body.classList.toggle('input-phase', !!isInput);
+  }
+
+  function switchTo(el, onShown) {
+    setPhase(el === inputMode);
+    [inputMode, cardMode].forEach(function (m) {
+      if (m !== el && !m.hidden) {
+        m.classList.add('out');
+        setTimeout(function () { m.hidden = true; m.classList.remove('out'); }, 380);
+      }
+    });
+    setTimeout(function () {
+      el.hidden = false;
+      void el.offsetWidth;
+      el.classList.remove('out');
+      if (onShown) onShown();
+    }, el.hidden ? 120 : 0);
+  }
+
+  /* ============================================================
+     5. 打字机
+     ============================================================ */
+  var blessEl = $('bless');
+  var toLineEl = $('toLine');
+  var signLineEl = $('signLine');
+  var typingTimers = [];
+
+  function clearTimers() {
+    typingTimers.forEach(clearTimeout);
+    typingTimers = [];
+  }
+
+  function typewriter(text, el, speed, done) {
+    el.textContent = '';
+    if (reduceMotion) {
+      el.textContent = text;
+      if (done) done();
+      return;
+    }
+    var cur = document.createElement('span');
+    cur.className = 'cursor';
+    el.appendChild(cur);
+    var i = 0;
+    (function tick() {
+      if (i < text.length) {
+        cur.insertAdjacentText('beforebegin', text.charAt(i++));
+        typingTimers.push(setTimeout(tick, speed));
+      } else {
+        typingTimers.push(setTimeout(function () { cur.remove(); if (done) done(); }, 650));
+      }
+    })();
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function renderCard(data) {
+    clearTimers();
+
+    var to = (data.to || '').trim();
+    var msg = (data.msg || '').trim() || '中秋快乐，愿你天天开心';
+    var from = (data.from || '').trim() || '一个想你的人';
+
+    toLineEl.innerHTML = to ? '致 <b>' + escapeHtml(to) + '</b>' : '致 你';
+    signLineEl.classList.remove('show');
+    signLineEl.textContent = '';
+    blessEl.textContent = '';
+
+    linkHint.textContent = '长按 / 点击上面的链接即可复制';
+    showShareLink(buildShareUrl(current));
+
+    typingTimers.push(setTimeout(function () {
+      typewriter(msg, blessEl, 92, function () {
+        signLineEl.textContent = '—— 来自 ' + from;
+        signLineEl.classList.add('show');
+      });
+    }, 520));
+  }
+
+  /* ============================================================
+     6. 分享
+     ============================================================ */
+  var current = { to: '', msg: '', from: '', style: 'cyber' };
+  var linkBox = $('linkBox');
+  var linkInput = $('linkInput');
+  var linkHint = $('linkHint');
+
+  function showShareLink(url) { linkInput.value = url; linkBox.hidden = false; }
+
+  function share() {
+    var url = buildShareUrl(current);
+    showShareLink(url);
+
+    var shareText = (current.to ? current.to + '，' : '') + current.msg +
+                    ' —— 来自 ' + current.from + '（' + STYLE_NAMES[current.style] + '风格中秋贺卡）';
+    var isFileUrl = window.location.protocol === 'file:';
+
+    if (navigator.share && !isFileUrl) {
+      navigator.share({ title: '中秋祝福', text: shareText, url: url })
+        .catch(function () { copyAndTip(url); });
+      return;
+    }
+    copyAndTip(url);
+  }
+
+  function copyAndTip(url) {
+    showShareLink(url);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(
+        function () { toast('链接已复制，快发给 TA 吧 🌕'); },
+        function () { legacyFallback(url); }
+      );
+    } else {
+      legacyFallback(url);
+    }
+  }
+
+  function legacyFallback(url) {
+    if (legacyCopy(url)) { toast('链接已复制，快发给 TA 吧 🌕'); return; }
+    linkHint.textContent = '复制受限，请长按上方链接手动复制';
+    toast('请长按下方链接手动复制 🌕');
+  }
+
+  function legacyCopy(text) {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.top = '-1000px';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, text.length);
+      var done = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return done;
+    } catch (e) { return false; }
+  }
+
+  /* ============================================================
+     7. 事件绑定 + 启动
+     ============================================================ */
+  $('makeBtn').addEventListener('click', function () {
+    var to = $('toInput').value.trim();
+    var msg = $('msgInput').value.trim();
+    var from = $('fromInput').value.trim();
+
+    if (!msg) {
+      toast('先说一句祝福语吧 ✍️');
+      $('msgInput').focus();
+      return;
+    }
+
+    current = {
+      to: to,
+      msg: msg,
+      from: from || '一个想你的人',
+      style: currentStyle
+    };
+
+    try { history.replaceState(null, '', buildShareUrl(current)); } catch (e) {}
+
+    switchTo(cardMode, function () { renderCard(current); });
+  });
+
+  $('shareBtn').addEventListener('click', share);
+
+  linkInput.addEventListener('click', function () {
+    linkInput.select();
+    linkInput.setSelectionRange(0, linkInput.value.length);
+  });
+
+  $('backBtn').addEventListener('click', function () {
+    clearTimers();
+    try { history.replaceState(null, '', window.location.href.split('?')[0]); } catch (e) {}
+    switchTo(inputMode, function () { $('msgInput').focus(); });
+  });
+
+  // 启动
+  var initial = readParams();
+  if (initial.msg || initial.to) {
+    setStyle(initial.style || 'cyber');
+    setPhase(false);
+    current = {
+      to: initial.to,
+      msg: initial.msg || '中秋快乐，愿你天天开心',
+      from: initial.from || '一个想你的人',
+      style: currentStyle
+    };
+    inputMode.hidden = true;
+    cardMode.hidden = false;
+    renderCard(current);
+  } else {
+    setStyle('cyber');          // 默认赛博朋克
+    setPhase(true);
+    inputMode.hidden = false;
+    cardMode.hidden = true;
+  }
+})();
+</script>
+</body>
+</html>
