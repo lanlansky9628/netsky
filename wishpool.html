@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0a0d24">
+<title>中秋星空许愿池</title>
+<!-- 内联月亮图标，避免浏览器请求 /favicon.ico 产生 404 -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23f5d78e'/%3E%3C/svg%3E">
+
+<!-- TailwindCSS（CDN，无需 npm） -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<style>
+  /* ============================================================
+     中秋星空许愿池 · 已接入 Supabase
+     层级：星云(0) → 星星/月亮(1) → 孔明灯(2) → 愿望墙+输入区(3)
+     ============================================================ */
+  :root {
+    --moon-size: clamp(112px, 30vw, 230px);
+    --serif: "Songti SC", "STSong", "Noto Serif SC", "Source Han Serif SC",
+             "SimSun", "KaiTi", Georgia, "Times New Roman", serif;
+    --gold: #f5d78e;
+  }
+
+  /* 自己声明盒模型，不依赖 Tailwind CDN 的 preflight */
+  *, *::before, *::after { box-sizing: border-box; }
+  * { -webkit-tap-highlight-color: transparent; }
+
+  html, body { height: 100%; overflow: hidden; }
+
+  body {
+    font-family: var(--serif);
+    background:
+      radial-gradient(ellipse 120% 70% at 78% -10%, rgba(120, 140, 255, .22) 0%, rgba(0,0,0,0) 62%),
+      radial-gradient(ellipse 90% 60% at 12% 22%, rgba(150, 90, 220, .20) 0%, rgba(0,0,0,0) 66%),
+      radial-gradient(ellipse 130% 60% at 50% 112%, rgba(90, 60, 180, .30) 0%, rgba(0,0,0,0) 68%),
+      linear-gradient(176deg, #050718 0%, #0a0d2a 26%, #141238 52%, #1d1140 76%, #150b2b 100%);
+    color: #eef2ff;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* ===================== 星云光斑 ===================== */
+  .sky-clip { position: fixed; inset: 0; overflow: hidden; z-index: 0; pointer-events: none; }
+  .nebula {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(46px);
+    will-change: transform, opacity;
+    animation: nebulaFlow ease-in-out infinite alternate;
+  }
+  @keyframes nebulaFlow {
+    0%   { transform: translate3d(0, 0, 0) scale(1); opacity: var(--o1, .55); }
+    50%  { transform: translate3d(var(--tx, 3vw), var(--ty, -2vh), 0) scale(1.12); opacity: var(--o2, .8); }
+    100% { transform: translate3d(calc(var(--tx, 3vw) * -0.6), var(--ty, -2vh), 0) scale(1.04); opacity: var(--o1, .55); }
+  }
+
+  /* ===================== 星星 ===================== */
+  .star {
+    position: absolute; border-radius: 50%; background: #fff;
+    box-shadow: 0 0 5px rgba(255, 255, 255, .9);
+    animation: twinkle ease-in-out infinite;
+  }
+  .star.gold { background: #ffeec2; box-shadow: 0 0 7px rgba(255, 230, 170, .95); }
+  @keyframes twinkle {
+    0%, 100% { opacity: .12; transform: scale(.65); }
+    50%      { opacity: var(--peak, 1); transform: scale(1.2); }
+  }
+
+  /* ===================== 月亮 ===================== */
+  .moon-clip { position: fixed; inset: 0; overflow: hidden; z-index: 1; pointer-events: none; }
+  .moon-wrap {
+    position: absolute;
+    top: clamp(4%, 7vh, 11%);
+    right: clamp(-6%, -3vw, 0%);
+    width: var(--moon-size); height: var(--moon-size);
+    animation: moonFloat 12s ease-in-out infinite;
+  }
+  @keyframes moonFloat {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-12px); }
+  }
+  .moon-halo {
+    position: absolute; left: 50%; top: 50%;
+    width: 340%; height: 340%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%; pointer-events: none;
+    background: radial-gradient(circle,
+      rgba(255, 253, 245, .52) 0%, rgba(255, 246, 214, .34) 14%,
+      rgba(255, 234, 175, .18) 28%, rgba(190, 175, 255, .09) 44%, rgba(0,0,0,0) 66%);
+    filter: blur(5px);
+    animation: haloBreath 9s ease-in-out infinite;
+  }
+  @keyframes haloBreath {
+    0%, 100% { opacity: .88; transform: translate(-50%, -50%) scale(1); }
+    50%      { opacity: 1;   transform: translate(-50%, -50%) scale(1.06); }
+  }
+  .moon {
+    position: absolute; inset: 0; border-radius: 50%;
+    background: radial-gradient(circle at 36% 32%,
+      #fffef9 0%, #fffaea 34%, #fdf0cc 60%, #f3dfa8 82%, #e2c98b 100%);
+    box-shadow:
+      0 0 30px 6px rgba(255, 250, 225, .50),
+      0 0 80px 24px rgba(255, 235, 175, .26),
+      0 0 150px 60px rgba(180, 165, 255, .16),
+      inset -10px -8px 26px rgba(200, 175, 110, .28),
+      inset 8px 6px 20px rgba(255, 255, 255, .60);
+  }
+  .moon::after {
+    content: ''; position: absolute; inset: 0; border-radius: 50%;
+    background:
+      radial-gradient(circle at 66% 60%, rgba(206, 180, 122, .30) 0 7%, rgba(0,0,0,0) 8%),
+      radial-gradient(circle at 30% 68%, rgba(206, 180, 122, .22) 0 5%, rgba(0,0,0,0) 6%),
+      radial-gradient(circle at 72% 32%, rgba(206, 180, 122, .18) 0 4%, rgba(0,0,0,0) 5%),
+      radial-gradient(circle at 45% 44%, rgba(206, 180, 122, .12) 0 10%, rgba(0,0,0,0) 11%);
+  }
+
+  /* ===================== 孔明灯 ===================== */
+  /* 灯的底部位置锚定在"底部码头"高度之上，两者不会重叠。
+     码头 = 愿望墙 + 输入区，高度约 240px（矮屏自动收紧）。 */
+  .lanterns {
+    position: absolute; left: 0; right: 0;
+    bottom: 254px;
+    z-index: 2;
+    display: flex; align-items: flex-start; justify-content: center;
+    gap: clamp(8px, 4vw, 46px);
+    pointer-events: none;
+    padding: 0 12px;
+  }
+  .lantern-unit {
+    display: flex; flex-direction: column; align-items: center;
+    animation: lanternBob ease-in-out infinite;
+    will-change: transform;
+  }
+  @keyframes lanternBob {
+    0%, 100% { transform: translateY(0) rotate(-1.1deg); }
+    50%      { transform: translateY(-16px) rotate(1.1deg); }
+  }
+  .lantern-unit:nth-child(1) { animation-duration: 6.4s; animation-delay: -0.4s; }
+  .lantern-unit:nth-child(2) { animation-duration: 7.6s; animation-delay: -2.2s; margin-top: -22px; }
+  .lantern-unit:nth-child(3) { animation-duration: 6.9s; animation-delay: -4.1s; margin-top: 6px; }
+
+  .lantern {
+    position: relative;
+    width: clamp(50px, 14vw, 84px);
+    height: clamp(60px, 17vw, 102px);
+    filter: drop-shadow(0 0 18px rgba(255, 190, 90, .70))
+            drop-shadow(0 0 44px rgba(255, 150, 60, .38));
+  }
+  .lantern-body {
+    position: absolute; inset: 0;
+    border-radius: 48% 48% 42% 42% / 40% 40% 58% 58%;
+    background: radial-gradient(ellipse 62% 48% at 50% 62%,
+      #fff6d2 0%, #ffd98a 30%, #ffb955 62%, #f09a35 88%, #d9822a 100%);
+    box-shadow:
+      inset -6px -4px 16px rgba(170, 90, 20, .35),
+      inset 5px 4px 14px rgba(255, 255, 220, .70);
+    animation: lanternGlow 5.2s ease-in-out infinite;
+  }
+  @keyframes lanternGlow {
+    0%, 100% { filter: brightness(1); }
+    50%      { filter: brightness(1.14); }
+  }
+  .lantern-body::before {
+    content: ''; position: absolute; inset: 6% 8%; border-radius: inherit;
+    background: repeating-linear-gradient(to right,
+      rgba(200, 120, 40, .18) 0 1px, rgba(0, 0, 0, 0) 1px 18%);
+    opacity: .8;
+  }
+  .lantern-cap, .lantern-base {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    width: 46%; height: 7px; border-radius: 3px;
+    background: linear-gradient(180deg, #7d4a1c, #4e2c0c);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .5);
+  }
+  .lantern-cap  { top: -3px; }
+  .lantern-base { bottom: -3px; width: 38%; }
+  .lantern-string {
+    width: 1.5px; height: clamp(16px, 4.5vw, 28px);
+    background: linear-gradient(180deg, rgba(245, 215, 142, .85), rgba(245, 215, 142, .35));
+  }
+  .plaque {
+    position: relative;
+    padding: clamp(7px, 2.2vw, 12px) clamp(6px, 2vw, 11px);
+    border-radius: 5px;
+    background:
+      linear-gradient(178deg, rgba(255, 240, 205, .18) 0%, rgba(0,0,0,0) 40%),
+      linear-gradient(168deg, #a8763f 0%, #8b5e2f 45%, #6f4922 100%);
+    border: 1px solid rgba(245, 215, 142, .55);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, .42),
+      inset 0 1px 0 rgba(255, 232, 180, .35), inset 0 -2px 6px rgba(0, 0, 0, .28);
+  }
+  .plaque::before {
+    content: ''; position: absolute; inset: 0; border-radius: 4px;
+    background: repeating-linear-gradient(94deg, rgba(80, 50, 20, .16) 0 1px, rgba(0,0,0,0) 1px 5px);
+    pointer-events: none;
+  }
+  .plaque::after {
+    content: ''; position: absolute; top: 3px; left: 50%; transform: translateX(-50%);
+    width: 3px; height: 3px; border-radius: 50%; background: rgba(60, 36, 12, .65);
+  }
+  .wish {
+    position: relative;
+    writing-mode: vertical-rl; text-orientation: upright;
+    font-size: clamp(11.5px, 3.5vw, 15px);
+    letter-spacing: clamp(2px, .8vw, 5px);
+    line-height: 1;
+    color: #ffeec9;
+    text-shadow: 0 1px 2px rgba(50, 25, 0, .85), 0 0 10px rgba(255, 210, 130, .35);
+    font-weight: 600;
+    max-height: 7.2em;              /* 木牌最多容纳的字数，超出截断 */
+    overflow: hidden;
+  }
+
+  /* ===================== 底部码头：愿望墙 + 输入区 ===================== */
+  /* 两者放进同一个贴底容器，作为整体参与布局 —— 墙与输入区
+     永远不会互相重叠；孔明灯则锚定在这个容器上方。 */
+  .bottom-dock {
+    position: fixed;
+    left: 0; right: 0;
+    bottom: 0;
+    z-index: 4;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 0 clamp(11px, 3vw, 16px) calc(14px + env(safe-area-inset-bottom));
+    pointer-events: none;
+  }
+  .bottom-fade {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 54vh;
+    z-index: 2; pointer-events: none;
+    background: linear-gradient(to top,
+      rgba(6, 8, 26, .94) 0%, rgba(6, 8, 26, .70) 34%,
+      rgba(6, 8, 26, .22) 66%, rgba(6, 8, 26, 0) 100%);
+  }
+
+  /* 愿望墙 */
+  .wall { pointer-events: none; }
+  .wall-head {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    margin-bottom: 6px;
+    font-size: 11px; letter-spacing: 3px;
+    color: rgba(255, 238, 205, .50);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, .6);
+  }
+  .wall-head .dot {
+    width: 4px; height: 4px; border-radius: 50%;
+    background: var(--gold);
+    box-shadow: 0 0 8px rgba(245, 215, 142, .9);
+    animation: twinkle 2.4s ease-in-out infinite;
+  }
+  .wall-strip {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 3px 2px 6px;
+    pointer-events: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .wall-strip::-webkit-scrollbar { display: none; }
+
+  .chip {
+    flex: 0 0 auto;
+    max-width: 175px;
+    padding: 6px 11px;
+    border-radius: 11px;
+    background: rgba(255, 255, 255, .07);
+    border: 1px solid rgba(245, 215, 142, .26);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, .30);
+    font-size: 12px;
+    line-height: 1.4;
+    color: #f4ecd8;
+    animation: fadeUpOnly .6s ease both;
+  }
+  .chip .who {
+    display: block;
+    font-size: 10px; letter-spacing: 1px;
+    color: rgba(245, 215, 142, .80);
+    margin-bottom: 2px;
+  }
+  .chip .what {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    word-break: break-word;
+  }
+  .chip.just-now {
+    border-color: rgba(245, 215, 142, .85);
+    box-shadow: 0 0 0 2px rgba(245, 215, 142, .18), 0 8px 22px rgba(0, 0, 0, .35);
+  }
+  .wall-empty {
+    flex: 0 0 auto; width: 100%;
+    text-align: center; font-size: 12px; letter-spacing: 2px;
+    color: rgba(255, 238, 205, .38); padding: 8px 0;
+  }
+  .skeleton {
+    flex: 0 0 auto; width: 130px; height: 44px; border-radius: 11px;
+    background: linear-gradient(90deg, rgba(255,255,255,.05) 25%, rgba(255,255,255,.12) 50%, rgba(255,255,255,.05) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s linear infinite;
+  }
+  @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+  /* 输入区 */
+  .wish-panel {
+    width: 100%;
+    max-width: 432px;
+    margin: 0 auto;
+    pointer-events: auto;
+  }
+  .glass {
+    position: relative;
+    display: flex; flex-direction: column; gap: 10px;
+    padding: clamp(13px, 3.6vw, 18px);
+    border-radius: 22px;
+    background: rgba(255, 255, 255, .085);
+    backdrop-filter: blur(16px) saturate(160%);
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
+    border: 1px solid rgba(245, 215, 142, .38);
+    box-shadow: 0 18px 44px rgba(0, 0, 0, .48),
+      inset 0 1px 0 rgba(255, 245, 215, .22), 0 0 26px rgba(245, 215, 142, .10);
+  }
+  .field-row { display: flex; gap: 8px; }
+  .glass input {
+    width: 100%;
+    font-family: inherit;
+    font-size: 16px;                 /* >=16px 防 iOS 聚焦缩放 */
+    letter-spacing: 1.5px;
+    color: #fff8e6;
+    background: rgba(255, 255, 255, .05);
+    border: 1px solid rgba(245, 215, 142, .30);
+    border-radius: 13px;
+    padding: 12px 14px;
+    outline: none;
+    transition: border-color .25s, box-shadow .25s, background .25s;
+    -webkit-user-select: text; user-select: text;
+  }
+  #nameInput { flex: 0 0 34%; }
+  #wishInput { flex: 1 1 auto; }
+  .glass input::placeholder { color: rgba(255, 240, 210, .38); letter-spacing: 1.5px; }
+  .glass input:focus {
+    border-color: rgba(245, 215, 142, .80);
+    background: rgba(255, 255, 255, .09);
+    box-shadow: 0 0 0 3px rgba(245, 215, 142, .14), 0 0 18px rgba(245, 215, 142, .16);
+  }
+
+  .btn-release {
+    width: 100%;
+    font-family: inherit;
+    font-size: clamp(15px, 4.2vw, 17px);
+    font-weight: 700;
+    letter-spacing: 6px; text-indent: 6px;
+    color: #4a2f08;
+    padding: 13px 18px;
+    border: 0; border-radius: 999px; cursor: pointer;
+    touch-action: manipulation;
+    background: linear-gradient(135deg, #fff1cd 0%, #f5d78e 42%, #e0b45f 100%);
+    box-shadow: 0 10px 28px rgba(200, 150, 60, .34), inset 0 1px 0 rgba(255, 255, 255, .7);
+    transition: transform .16s ease, box-shadow .25s ease, opacity .2s ease;
+    animation: btnPulse 3s ease-in-out infinite;
+  }
+  @keyframes btnPulse {
+    0%, 100% { box-shadow: 0 10px 28px rgba(200,150,60,.34), 0 0 0 0 rgba(245,215,142,.50); }
+    60%      { box-shadow: 0 10px 28px rgba(200,150,60,.34), 0 0 0 15px rgba(245,215,142,0); }
+  }
+  .btn-release:active { transform: scale(.975); }
+  .btn-release:disabled { opacity: .6; cursor: default; animation: none; }
+
+  /* ===================== 提示条 ===================== */
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: calc(30px + env(safe-area-inset-bottom));
+    transform: translate(-50%, 0);
+    z-index: 30;
+    max-width: 88vw;
+    padding: 11px 20px;
+    border-radius: 999px;
+    font-size: 13.5px; letter-spacing: 1.5px;
+    text-align: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .3s ease;
+  }
+  .toast.show { opacity: 1; }
+  .toast.ok {
+    color: #43300c;
+    background: linear-gradient(135deg, #fff3d4, #f5d78e);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, .40);
+  }
+  .toast.err {
+    color: #fff0ee;
+    background: linear-gradient(135deg, #7d2436, #5c1a28);
+    border: 1px solid rgba(255, 150, 150, .45);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, .50);
+  }
+
+  .fade-up { animation: fadeUpOnly 1.4s ease both; }
+  @keyframes fadeUpOnly {
+    from { opacity: 0; margin-top: 14px; }
+    to   { opacity: 1; margin-top: 0; }
+  }
+
+  /* ===================== 适配 ===================== */
+  @media (max-width: 480px) {
+    :root { --moon-size: clamp(104px, 33vw, 150px); }
+    .moon-wrap { top: 5%; right: -7%; }
+    .lanterns { bottom: 246px; gap: clamp(6px, 3vw, 18px); }
+    #nameInput { flex: 0 0 32%; }
+    .chip { max-width: 152px; font-size: 11.5px; }
+  }
+  /* 矮屏：码头变矮，灯跟着往下移，避免顶到标题 */
+  @media (max-height: 720px) {
+    .lanterns { bottom: 226px; }
+    .lantern { width: clamp(46px, 12.5vw, 68px); height: clamp(54px, 15vw, 82px); }
+    .lantern-unit:nth-child(2) { margin-top: -14px; }
+    .wish { font-size: clamp(11px, 3.2vw, 13px); max-height: 6.4em; }
+    .wall-head { font-size: 10px; margin-bottom: 4px; }
+  }
+  @media (max-height: 640px) {
+    .lanterns { bottom: 210px; }
+    .wish { max-height: 5.6em; }
+    .wall-head { display: none; }
+  }
+  @media (max-height: 560px) {
+    .wall { display: none; }        /* 极矮屏优先保证输入区可用 */
+    .lanterns { bottom: 196px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .star, .nebula, .lantern-unit, .lantern-body, .moon-wrap, .moon-halo,
+    .btn-release, .skeleton { animation: none !important; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- ===== 星云光斑 ===== -->
+  <div class="sky-clip" aria-hidden="true">
+    <div class="nebula" style="width:52vw;height:38vw;left:-8vw;top:6vh;background:radial-gradient(circle,rgba(196,120,255,.75),rgba(120,80,255,.28) 55%,transparent 72%);--tx:4vw;--ty:-2vh;--o1:.42;--o2:.72;animation-duration:26s;"></div>
+    <div class="nebula" style="width:60vw;height:42vw;right:-14vw;top:26vh;background:radial-gradient(circle,rgba(255,170,120,.45),rgba(255,120,90,.18) 55%,transparent 72%);--tx:-5vw;--ty:2vh;--o1:.30;--o2:.55;animation-duration:34s;animation-delay:-8s;"></div>
+    <div class="nebula" style="width:70vw;height:44vw;left:6vw;bottom:-6vh;background:radial-gradient(circle,rgba(90,140,255,.60),rgba(60,90,220,.20) 55%,transparent 72%);--tx:3vw;--ty:-3vh;--o1:.32;--o2:.60;animation-duration:30s;animation-delay:-14s;"></div>
+    <div class="nebula" style="width:40vw;height:30vw;right:8vw;bottom:16vh;background:radial-gradient(circle,rgba(255,220,160,.34),transparent 70%);--tx:-3vw;--ty:-1vh;--o1:.22;--o2:.44;animation-duration:22s;animation-delay:-4s;"></div>
+  </div>
+
+  <!-- ===== 星星层 ===== -->
+  <div id="stars" class="absolute inset-0 z-[1] pointer-events-none" aria-hidden="true"></div>
+
+  <!-- ===== 月亮 ===== -->
+  <div class="moon-clip" aria-hidden="true">
+    <div class="moon-wrap">
+      <div class="moon-halo"></div>
+      <div class="moon"></div>
+    </div>
+  </div>
+
+  <!-- ===== 标题 ===== -->
+  <div class="absolute left-0 right-0 top-[15%] z-[2] text-center pointer-events-none fade-up">
+    <h1 class="text-[clamp(20px,6.2vw,30px)] font-normal tracking-[.42em] text-[#f6ead0]"
+        style="text-shadow:0 2px 20px rgba(255,220,150,.35),0 1px 3px rgba(0,0,0,.6);">
+      星 空 许 愿 池
+    </h1>
+    <p class="mt-[13px] text-[clamp(11px,3.2vw,13px)] tracking-[.34em] text-[rgba(240,228,205,.52)]">
+      把心愿说给月亮听
+    </p>
+  </div>
+
+  <!-- ===== 三盏孔明灯 ===== -->
+  <div class="lanterns" aria-label="三盏承载愿望的孔明灯">
+    <div class="lantern-unit">
+      <div class="lantern"><div class="lantern-body"></div><div class="lantern-cap"></div><div class="lantern-base"></div></div>
+      <div class="lantern-string"></div>
+      <div class="plaque"><span class="wish" data-slot="0">逢考必过</span></div>
+    </div>
+    <div class="lantern-unit">
+      <div class="lantern"><div class="lantern-body"></div><div class="lantern-cap"></div><div class="lantern-base"></div></div>
+      <div class="lantern-string"></div>
+      <div class="plaque"><span class="wish" data-slot="1">家人平安</span></div>
+    </div>
+    <div class="lantern-unit">
+      <div class="lantern"><div class="lantern-body"></div><div class="lantern-cap"></div><div class="lantern-base"></div></div>
+      <div class="lantern-string"></div>
+      <div class="plaque"><span class="wish" data-slot="2">万事胜意</span></div>
+    </div>
+  </div>
+
+  <!-- ===== 愿望墙 + 输入区：合成底部码头 ===== -->
+  <div class="bottom-fade" aria-hidden="true"></div>
+
+  <div class="bottom-dock fade-up" style="animation-delay:.2s">
+    <div class="wall">
+      <div class="wall-head">
+        <span class="dot"></span>
+        <span id="wallTitle">大家的愿望</span>
+        <span class="dot"></span>
+      </div>
+      <div class="wall-strip" id="wallStrip">
+        <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
+      </div>
+    </div>
+
+    <div class="wish-panel">
+      <div class="glass">
+        <div class="field-row">
+          <input id="nameInput" type="text" maxlength="20" autocomplete="off" placeholder="你的名字" aria-label="你的名字">
+          <input id="wishInput" type="text" maxlength="60" autocomplete="off" placeholder="写下你的中秋愿望…" aria-label="写下你的中秋愿望">
+        </div>
+        <button class="btn-release" id="releaseBtn">放 飞 愿 望</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ============================================================
+     1. Supabase 配置
+     ------------------------------------------------------------
+     publishable / anon key 是"公开密钥"，写在前端源码里是安全的 ——
+     真正保护数据的是数据库的 RLS 策略（已配置为：只能插入和读取，
+     不能修改、不能删除）。
+     切勿把 service_role（secret）key 写进前端。
+     ============================================================ */
+  var SUPABASE_URL = 'https://fedfguteqkstyamjlubt.supabase.co';
+  var SUPABASE_KEY = 'sb_publishable_eehHVSB6_7HSWyGrgOnziA_WN0h3cl3';
+  var TABLE = 'wishes';
+  var FETCH_LIMIT = 30;          // 愿望墙最多展示多少条
+
+  var reduceMotion = window.matchMedia &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function rnd(a, b) { return Math.random() * (b - a) + a; }
+  function $(id) { return document.getElementById(id); }
+
+  /* ============================================================
+     2. 背景：星星 + 星云
+     ============================================================ */
+  (function buildStars() {
+    var layer = $('stars');
+    var n = window.innerWidth < 480 ? 110 : 170;
+    var frag = document.createDocumentFragment();
+    for (var i = 0; i < n; i++) {
+      var s = document.createElement('span');
+      s.className = 'star';
+      var size = rnd(0.8, 2.4);
+      s.style.width = size.toFixed(1) + 'px';
+      s.style.height = size.toFixed(1) + 'px';
+      s.style.left = rnd(0, 100).toFixed(2) + '%';
+      s.style.top = rnd(0, 100).toFixed(2) + '%';
+      s.style.setProperty('--peak', rnd(0.45, 1).toFixed(2));
+      s.style.animationDuration = rnd(1.8, 5.5).toFixed(2) + 's';
+      s.style.animationDelay = (-rnd(0, 5.5)).toFixed(2) + 's';
+      if (Math.random() < 0.22) s.className = 'star gold';
+      frag.appendChild(s);
+    }
+    layer.appendChild(frag);
+  })();
+
+  /* ============================================================
+     3. 提示条
+     ============================================================ */
+  var toastEl = $('toast');
+  var toastTimer = null;
+  function toast(text, kind) {
+    toastEl.textContent = text;
+    toastEl.className = 'toast show ' + (kind === 'err' ? 'err' : 'ok');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove('show'); }, kind === 'err' ? 4200 : 2800);
+  }
+
+  /* ============================================================
+     4. Supabase 读写（用原生 fetch，不引入额外 SDK）
+     ============================================================ */
+  function apiHeaders(extra) {
+    var h = {
+      'apikey': SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': 'application/json'
+    };
+    for (var k in (extra || {})) h[k] = extra[k];
+    return h;
+  }
+
+  // 统一的请求封装：带超时、把 HTTP 错误翻译成人话
+  function apiFetch(path, options) {
+    options = options || {};
+    var ctrl = new AbortController();
+    var timer = setTimeout(function () { ctrl.abort(); }, 15000);
+
+    return fetch(SUPABASE_URL + '/rest/v1/' + path, {
+      method: options.method || 'GET',
+      headers: apiHeaders(options.headers),
+      body: options.body,
+      signal: ctrl.signal
+    }).then(function (res) {
+      clearTimeout(timer);
+      return res.text().then(function (text) {
+        var data = null;
+        try { data = text ? JSON.parse(text) : null; } catch (e) { data = text; }
+        if (!res.ok) {
+          var msg = (data && (data.message || data.hint || data.error)) || ('HTTP ' + res.status);
+          var err = new Error(msg);
+          err.status = res.status;
+          throw err;
+        }
+        return data;
+      });
+    }).catch(function (err) {
+      clearTimeout(timer);
+      if (err.name === 'AbortError') {
+        var e2 = new Error('请求超时，请检查网络后重试');
+        e2.kind = 'timeout';
+        throw e2;
+      }
+      // 浏览器因跨域/断网抛出的 TypeError，没有 status
+      if (!err.status) {
+        var e3 = new Error('连接不上服务器：如果你是用 file:// 直接双击打开的，请改用网址访问');
+        e3.kind = 'network';
+        throw e3;
+      }
+      throw err;
+    });
+  }
+
+  function loadWishes() {
+    return apiFetch(TABLE + '?select=id,name,content,created_at&order=created_at.desc&limit=' + FETCH_LIMIT);
+  }
+
+  function postWish(name, content) {
+    return apiFetch(TABLE, {
+      method: 'POST',
+      headers: { 'Prefer': 'return=representation' },
+      body: JSON.stringify({ name: name || null, content: content })
+    });
+  }
+
+  /* ============================================================
+     5. 愿望墙渲染
+     ============================================================ */
+  var wallStrip = $('wallStrip');
+  var wallTitle = $('wallTitle');
+  var lanternSlots = Array.prototype.slice.call(document.querySelectorAll('.wish'));
+
+  // 用 textContent 写入，天然免疫 XSS（绝不用 innerHTML 拼用户输入）
+  function makeChip(w, isNew) {
+    var chip = document.createElement('div');
+    chip.className = 'chip' + (isNew ? ' just-now' : '');
+
+    var who = document.createElement('span');
+    who.className = 'who';
+    who.textContent = (w.name ? w.name : '匿名') + ' · ' + shortTime(w.created_at);
+
+    var what = document.createElement('span');
+    what.className = 'what';
+    what.textContent = w.content || '';
+
+    chip.appendChild(who);
+    chip.appendChild(what);
+    return chip;
+  }
+
+  function shortTime(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    var diff = (Date.now() - d.getTime()) / 1000;
+    if (diff < 60) return '刚刚';
+    if (diff < 3600) return Math.floor(diff / 60) + ' 分钟前';
+    if (diff < 86400) return Math.floor(diff / 3600) + ' 小时前';
+    return (d.getMonth() + 1) + '月' + d.getDate() + '日';
+  }
+
+  function renderWall(list, newId) {
+    wallStrip.textContent = '';
+    if (!list || !list.length) {
+      var empty = document.createElement('div');
+      empty.className = 'wall-empty';
+      empty.textContent = '还没有人许愿，你可以做第一个 🌕';
+      wallStrip.appendChild(empty);
+      return;
+    }
+    wallTitle.textContent = '大家的愿望 · ' + list.length;
+    var frag = document.createDocumentFragment();
+    list.forEach(function (w) { frag.appendChild(makeChip(w, newId && w.id === newId)); });
+    wallStrip.appendChild(frag);
+    wallStrip.scrollLeft = 0;
+  }
+
+  // 把最新 3 条愿望写到孔明灯的木牌上（有真实数据才覆盖示例文案）
+  function applyToLanterns(list) {
+    if (!list || !list.length) return;
+    for (var i = 0; i < lanternSlots.length; i++) {
+      var w = list[i];
+      if (!w || !w.content) continue;
+      lanternSlots[i].textContent = w.content;
+    }
+  }
+
+  /* ============================================================
+     6. 放飞愿望
+     ============================================================ */
+  var nameInput = $('nameInput');
+  var wishInput = $('wishInput');
+  var btn = $('releaseBtn');
+  var busy = false;
+
+  function setBusy(on) {
+    busy = on;
+    btn.disabled = on;
+    btn.textContent = on ? '正 在 放 飞…' : '放 飞 愿 望';
+  }
+
+  function release() {
+    if (busy) return;
+
+    var name = (nameInput.value || '').trim().slice(0, 20);
+    var content = (wishInput.value || '').trim().slice(0, 60);
+
+    if (!content) {
+      toast('先写下你的愿望吧 ✍️');
+      wishInput.focus();
+      return;
+    }
+
+    setBusy(true);
+
+    postWish(name, content).then(function (rows) {
+      var created = (rows && rows[0]) || null;
+
+      // 立刻给出视觉反馈，不等待重新拉取
+      if (created) {
+        applyToLanterns([created].concat(lastList.slice(0, 2)));
+      }
+      toast('愿望已飞向月亮，愿它成真 🌕');
+
+      wishInput.value = '';
+      nameInput.value = '';
+
+      return loadWishes().then(function (list) {
+        lastList = list || [];
+        renderWall(lastList, created && created.id);
+      });
+    }).catch(function (err) {
+      console.error('[wishpool] 提交失败:', err);
+      var hint = err.kind === 'network' ? err.message
+               : err.status === 401 || err.status === 403 ? '没有写入权限，请检查数据库的 RLS 策略'
+               : err.status === 404 ? '找不到数据表，请确认表名是 wishes'
+               : err.message;
+      toast('放飞失败：' + hint, 'err');
+    }).then(function () {
+      setBusy(false);
+    });
+  }
+
+  btn.addEventListener('click', release);
+  [nameInput, wishInput].forEach(function (el) {
+    el.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); release(); }
+    });
+  });
+
+  /* ============================================================
+     7. 启动：拉取愿望
+     ============================================================ */
+  var lastList = [];
+
+  loadWishes().then(function (list) {
+    lastList = list || [];
+    renderWall(lastList, null);
+    applyToLanterns(lastList);
+  }).catch(function (err) {
+    console.error('[wishpool] 读取失败:', err);
+    wallStrip.textContent = '';
+    var box = document.createElement('div');
+    box.className = 'wall-empty';
+    box.textContent = err.kind === 'network' ? '连接不上许愿池，请用网址访问' : '愿望暂时加载不出来';
+    wallStrip.appendChild(box);
+    toast('读取失败：' + err.message, 'err');
+  });
+
+  // 每分钟刷新一下时间显示
+  setInterval(function () {
+    if (lastList.length) renderWall(lastList, null);
+  }, 60000);
+})();
+</script>
+</body>
+</html>
