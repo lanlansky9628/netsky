@@ -634,12 +634,18 @@
 
   var TABLE = 'wishes';
 
-  /* 是否使用 recent_wishes 视图读取。
-     视图的好处：把"最多 100 条"这个上限写死在数据库里，
-     即使有人拿公开 key 翻页，也只能读到最近 100 条。
-     如果你已经在 SQL Editor 里建好了这个视图，把它改成 true 即可；
-     保持 false 也能正常工作（直接读表）。 */
-  var USE_VIEW = true;
+  /* 读数据的方式：直接用 wishes 表（当前设置）
+     ------------------------------------------------------------
+     之前有个可选的 recent_wishes 视图，能把"最多 100 条"的上限写死在数据库里。
+     如果那个视图没建成功，就不要开它 —— 开了会去读一个不存在的表而报错。
+     想重新启用视图（须先在 SQL Editor 里建好）就把下面改成 true：
+       create view public.recent_wishes
+       with (security_invoker = on) as
+         select id, name, content, created_at
+         from public.wishes order by created_at desc limit 100;
+       grant select on public.recent_wishes to anon;
+     */
+  var USE_VIEW = false;
   var SOURCE = USE_VIEW ? 'recent_wishes' : TABLE;
 
   var STARS_ON_SKY = 26;     // 天空带最多几颗许愿星
