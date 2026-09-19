@@ -26,7 +26,10 @@
     --serif: "Songti SC", "STSong", Georgia, "SimSun", serif;
   }
 
-  html { overflow-x: hidden; }
+  /* 横向溢出裁剪：漂浮 emoji 定位到 96% 会略微出界。
+     用 clip 而不是 hidden —— hidden 会在 html 上建立滚动容器，
+     导致根元素出现无意义的滚动区域（实测 scrollWidth 反而小于视口）。 */
+  html { overflow-x: clip; }
   html, body { height: 100%; }
 
   body {
@@ -201,6 +204,8 @@
   .food-item .who {
     font-size: 10.5px; font-weight: 500;
     color: rgba(138, 50, 8, .45);
+    padding-left: 6px;
+    border-left: 1px solid rgba(216, 80, 20, .28);   /* 与菜名分隔，不然会连成"火锅宿舍" */
   }
   .food-item .del {
     width: 20px; height: 20px; flex: 0 0 auto;
@@ -659,6 +664,13 @@
     syncText.textContent = text;
   }
 
+  // 菜单数量变了就刷新状态条。增删之后必须调用，
+  // 否则会出现"列表已变、状态条还写着旧数量"的不一致。
+  function syncCountText() {
+    if (!cloudOK) return;
+    setSync('ok', '已连接云端 · ' + foods.length + ' 道菜');
+  }
+
   /* ============================================================
      5. 渲染
      ============================================================ */
@@ -844,6 +856,7 @@
         foods.push(created);
         renderFoods();
         updateExcludeInfo();
+        syncCountText();
       }
       $('foodInput').value = '';
       flashHint('已加进宿舍菜单：「' + name + '」');
@@ -872,6 +885,7 @@
       foods = foods.filter(function (x) { return x.id !== f.id; });
       renderFoods();
       updateExcludeInfo();
+      syncCountText();
       flashHint('已删除「' + f.name + '」');
     }).catch(function (err) {
       itemEl.classList.remove('pending');
@@ -1094,8 +1108,7 @@
   refreshHistory(true).catch(function () {});
 
   // 轮询：室友加了菜，最多 10 秒后自动出现
-  // 页面切到后台时暂停，省流量
-  var pollTimer = null;
+  // 页面切到后台时暂停，省流量；切回来立刻同步一次
   var lastFoodCount = -1;
 
   function poll() {
@@ -1109,7 +1122,7 @@
         lsSet(KEY_CACHE_F, foods);
         renderFoods();
         updateExcludeInfo();
-        setSync('ok', '已连接云端 · ' + foods.length + ' 道菜');
+        syncCountText();
       }
     }).catch(function () {
       cloudOK = false;
