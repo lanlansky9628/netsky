@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#05070f">
+<title>Lansky · 个人数字作品集</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b1020'/%3E%3Ctext x='16' y='23' font-size='17' font-family='monospace' fill='%2360f0ff' text-anchor='middle'%3EL%3C/text%3E%3C/svg%3E">
+
+<!-- TailwindCSS（CDN） -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<style>
+  /* ============================================================
+     Lansky · 个人数字作品集
+     深色科技极简风 / 霓虹发光卡片 / 纯静态
+     ============================================================ */
+  *, *::before, *::after { box-sizing: border-box; }
+
+  :root {
+    --cyan: #5eead4;
+    --violet: #a78bfa;
+    --pink: #f472b6;
+    --amber: #fbbf24;
+    --ink: #e8eefc;
+    --dim: rgba(200, 216, 245, .58);
+    --font-sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+                 "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+
+  html { overflow-x: clip; scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    font-family: var(--font-sans);
+    color: var(--ink);
+    background:
+      radial-gradient(ellipse 80% 50% at 78% -6%, rgba(94, 234, 212, .16) 0%, rgba(0,0,0,0) 62%),
+      radial-gradient(ellipse 70% 45% at 12% 8%, rgba(167, 139, 250, .18) 0%, rgba(0,0,0,0) 65%),
+      radial-gradient(ellipse 90% 50% at 50% 108%, rgba(244, 114, 182, .10) 0%, rgba(0,0,0,0) 68%),
+      linear-gradient(172deg, #05070f 0%, #080c1a 40%, #0a0d1f 70%, #06080f 100%);
+    background-attachment: fixed;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* 极细网格底纹（科技感） */
+  .grid-bg {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image:
+      linear-gradient(to right, rgba(120, 200, 255, .045) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(120, 200, 255, .045) 1px, transparent 1px);
+    background-size: 46px 46px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 20%, #000 0%, transparent 78%);
+    -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 20%, #000 0%, transparent 78%);
+  }
+
+  .wrap { position: relative; z-index: 1; }
+
+  /* ===================== 顶部 ===================== */
+  .badge-live {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-family: var(--font-mono);
+    font-size: 11.5px; letter-spacing: 1.5px;
+    color: var(--cyan);
+    background: rgba(94, 234, 212, .10);
+    border: 1px solid rgba(94, 234, 212, .35);
+    border-radius: 999px;
+    padding: 5px 13px;
+  }
+  .badge-live .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 9px var(--cyan);
+    animation: pulseDot 2s ease-in-out infinite;
+  }
+  @keyframes pulseDot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: .4; transform: scale(.75); }
+  }
+
+  .name {
+    font-size: clamp(46px, 15vw, 96px);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    background: linear-gradient(120deg, #ffffff 0%, #b8e8ff 34%, var(--cyan) 58%, var(--violet) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 0 26px rgba(94, 234, 212, .28));
+  }
+
+  .slogan {
+    font-size: clamp(14px, 4.2vw, 18px);
+    color: var(--dim);
+    letter-spacing: .04em;
+  }
+  .slogan .cursor {
+    display: inline-block;
+    width: 2px; height: 1em;
+    margin-left: 4px;
+    background: var(--cyan);
+    vertical-align: -.14em;
+    animation: blink 1.05s steps(1, end) infinite;
+  }
+  @keyframes blink { 0%, 50% { opacity: 1; } 50.01%, 100% { opacity: 0; } }
+
+  /* ===================== 区块标题 ===================== */
+  .sec-title {
+    display: flex; align-items: center; gap: 12px;
+    font-family: var(--font-mono);
+    font-size: 12.5px; letter-spacing: 3px;
+    color: rgba(200, 216, 245, .5);
+    text-transform: uppercase;
+  }
+  .sec-title::after {
+    content: ''; flex: 1; height: 1px;
+    background: linear-gradient(to right, rgba(120, 200, 255, .28), transparent);
+  }
+
+  /* ===================== 作品卡片 ===================== */
+  .card {
+    position: relative;
+    display: flex; flex-direction: column;
+    border-radius: 18px;
+    padding: 22px 22px 20px;
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    background: linear-gradient(165deg, rgba(20, 27, 46, .82) 0%, rgba(11, 16, 32, .90) 100%);
+    border: 1px solid rgba(120, 200, 255, .16);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .45);
+    /* 悬停上浮的过渡 */
+    transition: transform .32s cubic-bezier(.2, .9, .3, 1.1),
+                box-shadow .32s ease,
+                border-color .32s ease;
+    will-change: transform;
+  }
+  /* 顶部霓虹高光线 */
+  .card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent, var(--cyan)), transparent);
+    opacity: .55;
+    transition: opacity .32s ease;
+  }
+  /* 角落光晕 */
+  .card::after {
+    content: '';
+    position: absolute; inset: -40% -40% auto auto;
+    width: 240px; height: 240px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--accent, var(--cyan)) 0%, transparent 66%);
+    opacity: .07;
+    transition: opacity .32s ease;
+    pointer-events: none;
+  }
+
+  /* 鼠标悬停：上浮 + 霓虹发光增强 */
+  @media (hover: hover) {
+    .card:hover {
+      transform: translateY(-9px);
+      border-color: color-mix(in srgb, var(--accent, var(--cyan)) 62%, transparent);
+      box-shadow:
+        0 22px 46px rgba(0, 0, 0, .55),
+        0 0 0 1px color-mix(in srgb, var(--accent, var(--cyan)) 34%, transparent),
+        0 0 26px color-mix(in srgb, var(--accent, var(--cyan)) 26%, transparent),
+        0 0 62px color-mix(in srgb, var(--accent, var(--cyan)) 14%, transparent);
+    }
+    .card:hover::before { opacity: 1; }
+    .card:hover::after { opacity: .17; }
+    .card:hover .card-arrow { transform: translate(3px, -3px); color: var(--accent, var(--cyan)); }
+  }
+  /* 触屏：按下时轻微反馈 */
+  @media (hover: none) {
+    .card:active { transform: scale(.985); }
+  }
+
+  .card-icon {
+    width: 44px; height: 44px;
+    display: grid; place-items: center;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--accent, var(--cyan)) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent, var(--cyan)) 32%, transparent);
+    font-size: 21px;
+    flex: 0 0 auto;
+  }
+
+  .card-title {
+    font-size: 17.5px; font-weight: 700; letter-spacing: .01em;
+    line-height: 1.35;
+  }
+  .card-desc {
+    font-size: 13.5px; line-height: 1.65;
+    color: var(--dim);
+  }
+
+  .tag {
+    font-family: var(--font-mono);
+    font-size: 10.5px; letter-spacing: .5px;
+    color: rgba(200, 216, 245, .62);
+    background: rgba(120, 200, 255, .07);
+    border: 1px solid rgba(120, 200, 255, .16);
+    border-radius: 6px;
+    padding: 2.5px 7px;
+    white-space: nowrap;
+  }
+
+  /* 状态标记 */
+  .status {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 10.5px; letter-spacing: 1px;
+    padding: 3px 9px; border-radius: 999px;
+    white-space: nowrap;
+  }
+  .status.online {
+    color: #6ee7b7;
+    background: rgba(110, 231, 183, .10);
+    border: 1px solid rgba(110, 231, 183, .32);
+  }
+  .status.offline {
+    color: rgba(200, 216, 245, .55);
+    background: rgba(200, 216, 245, .06);
+    border: 1px solid rgba(200, 216, 245, .18);
+  }
+
+  .card-arrow {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    color: rgba(200, 216, 245, .38);
+    transition: transform .28s ease, color .28s ease;
+    flex: 0 0 auto;
+  }
+
+  /* 不可点击的卡片 */
+  .card.disabled { cursor: default; }
+  @media (hover: hover) {
+    .card.disabled:hover { transform: none; box-shadow: 0 10px 30px rgba(0,0,0,.45); border-color: rgba(120,200,255,.16); }
+    .card.disabled:hover::before { opacity: .55; }
+    .card.disabled:hover::after { opacity: .07; }
+    .card.disabled:hover .card-arrow { transform: none; color: rgba(200,216,245,.38); }
+  }
+
+  /* ===================== 联系区 ===================== */
+  .contact-box {
+    position: relative;
+    border-radius: 18px;
+    padding: 26px 22px;
+    text-align: center;
+    background: linear-gradient(165deg, rgba(20, 27, 46, .80) 0%, rgba(11, 16, 32, .88) 100%);
+    border: 1px solid rgba(120, 200, 255, .16);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .42);
+    overflow: hidden;
+  }
+  .contact-box::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--violet), var(--pink), transparent);
+    opacity: .7;
+  }
+  .wechat-name {
+    font-family: var(--font-mono);
+    font-size: 15px; font-weight: 700;
+    letter-spacing: 1px;
+    color: #fff;
+  }
+
+  .foot-note {
+    font-family: var(--font-mono);
+    font-size: 11px; letter-spacing: 1.4px;
+    color: rgba(200, 216, 245, .32);
+  }
+
+  /* 入场动画
+     ------------------------------------------------------------
+     ⚠️ 这里必须用 backwards 而不是 both。
+     both 会在动画结束后继续锁住 transform 的最终值（translateY(0)），
+     从而把 .card:hover 的 translateY(-9px) 永远压住 —— 悬停上浮会完全失效。
+     backwards 只在动画开始前应用首帧，结束后即释放样式，悬停才能接管。 */
+  .rise { animation: rise .8s cubic-bezier(.2, .9, .3, 1) backwards; }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .badge-live .dot, .slogan .cursor { animation: none !important; }
+    .rise { animation: none !important; }
+    html { scroll-behavior: auto; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="grid-bg" aria-hidden="true"></div>
+
+  <div class="wrap max-w-5xl mx-auto px-5 sm:px-8 py-14 sm:py-20">
+
+    <!-- ===================== 顶部 ===================== -->
+    <header class="rise">
+      <span class="badge-live">
+        <span class="dot"></span>
+        AVAILABLE FOR NEW PROJECTS
+      </span>
+
+      <h1 class="name mt-6">Lansky</h1>
+
+      <p class="slogan mt-5 max-w-2xl">
+        一个正在用 AI 折腾小玩意的大学生<span class="cursor"></span>
+      </p>
+
+      <p class="mt-3 text-[13px] sm:text-sm text-[rgba(200,216,245,.42)] font-mono tracking-wide">
+        用「做」来学习 · 每一次发布都离 AI 世界更近一点
+      </p>
+    </header>
+
+    <!-- ===================== 作品 ===================== -->
+    <section class="mt-16 sm:mt-20">
+      <div class="sec-title rise" style="animation-delay:.08s">SELECTED WORKS</div>
+
+      <div id="grid" class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5"></div>
+    </section>
+
+    <!-- ===================== 联系我 ===================== -->
+    <section class="mt-16 sm:mt-20">
+      <div class="sec-title rise" style="animation-delay:.16s">CONTACT</div>
+
+      <div class="contact-box mt-6 rise" style="animation-delay:.2s">
+        <div class="text-[38px] leading-none">📮</div>
+
+        <p class="mt-4 text-[13px] text-[rgba(200,216,245,.55)] tracking-wide">来公众号找我聊天</p>
+
+        <p class="wechat-name mt-2.5 text-[clamp(18px,5.4vw,24px)]">
+          Lansky的AI实验室
+        </p>
+
+        <p class="mt-4 text-[13px] leading-relaxed text-[rgba(200,216,245,.50)] max-w-md mx-auto">
+          我会在这里记录一个普通大学生在 AI 时代的成长 ——<br class="hidden sm:block">
+          做过的小程序、踩过的坑，还有那些「原来是这样」的瞬间。
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center justify-center gap-2.5">
+          <span class="tag">AI 编程</span>
+          <span class="tag">独立开发</span>
+          <span class="tag">单文件网页</span>
+          <span class="tag">踩坑实录</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== 页脚 ===================== -->
+    <footer class="mt-14 pt-7 border-t border-[rgba(120,200,255,.12)] text-center">
+      <p class="foot-note">DESIGNED &amp; BUILT WITH AI · 2026</p>
+      <p class="foot-note mt-2">愿所有努力都不被辜负</p>
+    </footer>
+  </div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ============================================================
+     作品数据 —— 改这里就够了
+     ------------------------------------------------------------
+     部署后把 link 换成你的真实网址即可。
+     若全部项目都部署在同一个 GitHub Pages 仓库下，
+     只需把 SITE 改成 "https://你的用户名.github.io/你的仓库"，
+     下面用相对文件名就能拼出完整链接。
+     ============================================================ */
+  var SITE = '';   // 例如: 'https://lansky.github.io/portfolio'  ← 部署后填这里
+
+  var PROJECTS = [
+    {
+      icon: '💘',
+      accent: '#f472b6',
+      title: '表白小工具',
+      desc: '鼠标一碰到「不要」，按钮就满屏瞬移，永远点不到。',
+      tags: ['Python', 'tkinter', 'PyInstaller'],
+      status: 'offline',
+      statusText: '本地 EXE 程序',
+      link: ''                       // 本地 exe，没有网页版
+    },
+    {
+      icon: '🌕',
+      accent: '#a78bfa',
+      title: '中秋星空许愿池',
+      desc: '多人共享的云端许愿墙，写下心愿挂到孔明灯上。',
+      tags: ['Supabase', 'RLS', '实时同步'],
+      status: 'online',
+      statusText: '在线可玩',
+      file: 'wishpool.html'
+    },
+    {
+      icon: '🍜',
+      accent: '#fbbf24',
+      title: '今天吃什么决策器',
+      desc: '单机版命运转盘，解决选择困难症的终极解药。',
+      tags: ['localStorage', '随机决策', '老虎机'],
+      status: 'online',
+      statusText: '在线可玩',
+      file: 'eat_what.html'
+    },
+    {
+      icon: '✨',
+      accent: '#5eead4',
+      title: '科技感动态签名',
+      desc: '用 SVG 路径一笔一划「写」出来的发光签名。',
+      tags: ['SVG 描边', '路径动画', '零依赖'],
+      status: 'online',
+      statusText: '在线可看',
+      file: 'logo.html'
+    },
+    {
+      icon: '🎑',
+      accent: '#ffd479',
+      title: '中秋祝福生成器',
+      desc: '选风格、填祝福语，一键生成专属中秋贺卡并分享给朋友。',
+      tags: ['双模式', '三种风格', 'URL 分享'],
+      status: 'online',
+      statusText: '在线可玩',
+      file: 'moon_maker.html'
+    },
+    {
+      icon: '🌙',
+      accent: '#c4b5fd',
+      title: '中秋星空贺卡',
+      desc: '深蓝夜空、巨月与桂花飘落，逐字打出你的祝福语。',
+      tags: ['纯 CSS 动画', '打字机', '移动适配'],
+      status: 'online',
+      statusText: '在线可看',
+      file: 'mooncard.html'
+    }
+  ];
+
+  function resolveLink(p) {
+    if (p.link) return p.link;                       // 显式给了完整链接
+    if (p.file && SITE) return SITE.replace(/\/$/, '') + '/' + p.file;
+    if (p.file) return p.file;                       // 本地同目录相对路径
+    return '';
+  }
+
+  var grid = document.getElementById('grid');
+  var frag = document.createDocumentFragment();
+
+  PROJECTS.forEach(function (p, i) {
+    var href = resolveLink(p);
+    var clickable = !!href;
+
+    var el = document.createElement(clickable ? 'a' : 'div');
+    el.className = 'card rise' + (clickable ? '' : ' disabled');
+    el.style.setProperty('--accent', p.accent);
+    el.style.animationDelay = (0.12 + i * 0.07).toFixed(2) + 's';
+
+    if (clickable) {
+      el.href = href;
+      el.target = '_blank';
+      el.rel = 'noopener noreferrer';
+      el.setAttribute('aria-label', p.title + '（在新标签打开）');
+    }
+
+    /* --- 头部：图标 + 状态 --- */
+    var head = document.createElement('div');
+    head.className = 'flex items-start justify-between gap-3';
+
+    var icon = document.createElement('span');
+    icon.className = 'card-icon';
+    icon.textContent = p.icon;
+
+    var status = document.createElement('span');
+    status.className = 'status ' + p.status;
+    status.textContent = p.statusText;
+
+    head.appendChild(icon);
+    head.appendChild(status);
+
+    /* --- 标题 + 描述 --- */
+    var title = document.createElement('h3');
+    title.className = 'card-title mt-4';
+    title.textContent = p.title;
+
+    var desc = document.createElement('p');
+    desc.className = 'card-desc mt-2';
+    desc.textContent = p.desc;
+
+    /* --- 标签 --- */
+    var tagRow = document.createElement('div');
+    tagRow.className = 'mt-4 flex flex-wrap gap-1.5';
+    p.tags.forEach(function (t) {
+      var tag = document.createElement('span');
+      tag.className = 'tag';
+      tag.textContent = t;
+      tagRow.appendChild(tag);
+    });
+
+    /* --- 底部：动作提示 --- */
+    var foot = document.createElement('div');
+    foot.className = 'mt-5 pt-4 flex items-center justify-between gap-3 border-t border-[rgba(120,200,255,.10)]';
+
+    var hint = document.createElement('span');
+    hint.className = 'font-mono text-[11px] tracking-wide';
+    hint.style.color = 'rgba(200,216,245,.42)';
+    hint.textContent = clickable ? '点击查看' : '暂未上线';
+
+    var arrow = document.createElement('span');
+    arrow.className = 'card-arrow';
+    arrow.textContent = clickable ? '↗' : '·';
+
+    foot.appendChild(hint);
+    foot.appendChild(arrow);
+
+    el.appendChild(head);
+    el.appendChild(title);
+    el.appendChild(desc);
+    el.appendChild(tagRow);
+    el.appendChild(foot);
+    frag.appendChild(el);
+  });
+
+  grid.appendChild(frag);
+
+  /* 若链接还是本地相对路径（SITE 没填），给一句温和的提示，不打扰访客 */
+  if (!SITE) {
+    console.info(
+      '[portfolio] 提示：作品链接目前用的是本地相对文件名。\n' +
+      '部署后请打开 portfolio.html，把脚本里的 SITE 改成你的 GitHub Pages 地址，\n' +
+      '例如 SITE = "https://你的用户名.github.io/你的仓库"'
+    );
+  }
+})();
+</script>
+</body>
+</html>

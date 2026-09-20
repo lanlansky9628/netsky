@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#04070f">
+<title>LANSKY · 动态签名</title>
+<style>
+  /* ============================================================
+     科技感动态签名  logo.html
+     层级：网格(0) → 扫描线(1) → 签名(2)
+     ============================================================ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --cyan: #38e8ff;
+    --cyan-soft: #7ff2ff;
+    --cyan-dim: rgba(56, 232, 255, .16);
+    --mono: Consolas, "Courier New", "DejaVu Sans Mono", "SFMono-Regular",
+            "Liberation Mono", Menlo, monospace;
+  }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;                 /* 单屏展示，不滚动 */
+  }
+
+  body {
+    /* 深蓝 → 黑 的科技感渐变 */
+    background:
+      radial-gradient(ellipse 70% 50% at 50% 42%, rgba(20, 90, 160, .38) 0%, rgba(0, 0, 0, 0) 70%),
+      radial-gradient(ellipse 90% 60% at 50% 110%, rgba(10, 70, 130, .30) 0%, rgba(0, 0, 0, 0) 70%),
+      linear-gradient(160deg, #061428 0%, #040c1c 38%, #02060f 72%, #000000 100%);
+    color: #cfefff;
+    font-family: var(--mono);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* ===================== 缓慢移动的淡蓝网格 ===================== */
+  /* 两层大小不同的网格叠加，移动速度不同 → 更强的空间纵深感 */
+  .grid, .grid-fine {
+    position: absolute;
+    /* 比视口大一圈，避免移动时露出边缘 */
+    left: -40px; top: -40px; right: -40px; bottom: -40px;
+    pointer-events: none;
+    will-change: transform;
+  }
+
+  .grid {
+    background-image:
+      linear-gradient(to right, var(--cyan-dim) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--cyan-dim) 1px, transparent 1px);
+    background-size: 72px 72px;
+    animation: gridDrift 46s linear infinite;
+  }
+
+  .grid-fine {
+    background-image:
+      linear-gradient(to right, rgba(56, 232, 255, .07) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(56, 232, 255, .07) 1px, transparent 1px);
+    background-size: 18px 18px;
+    opacity: .8;
+    animation: gridDrift 96s linear infinite reverse;
+  }
+
+  /* 位移正好一个格子，循环无缝 */
+  @keyframes gridDrift {
+    from { transform: translate3d(0, 0, 0); }
+    to   { transform: translate3d(72px, 72px, 0); }
+  }
+
+  /* 中心柔光 + 暗角，把视线聚到签名上 */
+  .vignette {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 62% 46% at 50% 50%, rgba(56, 232, 255, .10) 0%, rgba(0, 0, 0, 0) 62%),
+      radial-gradient(ellipse 100% 100% at 50% 50%, rgba(0, 0, 0, 0) 42%, rgba(0, 0, 0, .72) 100%);
+  }
+
+  /* 极慢的横向扫描线，增添"设备感" */
+  .scanline {
+    position: absolute;
+    left: 0; right: 0;
+    height: 160px;
+    pointer-events: none;
+    background: linear-gradient(to bottom,
+      rgba(56, 232, 255, 0) 0%,
+      rgba(56, 232, 255, .055) 50%,
+      rgba(56, 232, 255, 0) 100%);
+    animation: scan 11s linear infinite;
+  }
+  @keyframes scan {
+    0%   { transform: translateY(-180px); opacity: 0; }
+    12%  { opacity: 1; }
+    88%  { opacity: 1; }
+    100% { transform: translateY(calc(100vh + 40px)); opacity: 0; }
+  }
+
+  /* ===================== 签名主体 ===================== */
+  .stage {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    max-width: min(880px, 92vw);
+    padding: 0 clamp(12px, 4vw, 32px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(14px, 4vw, 30px);
+  }
+
+  .sig-wrap {
+    position: relative;
+    width: 100%;
+  }
+
+  /* 适配手机竖屏：按容器宽度自适应，最大高度也加以限制 */
+  svg.sign {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 46vh;
+    overflow: visible;
+  }
+
+  /* 所有描边统一风格：硬朗的直角收尾 */
+  .ink {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    /* 整体倾斜（仿斜体）：以基线为轴做 skewX，
+       基线以下的 descender 与下划线保持水平 —— 比 CSS italic 更可控。
+       注意：滤波后的外侧泛光会被裁切，所以这两个属性必须一起给。 */
+    transform: skewX(-10deg);
+    transform-origin: 450px 234px;
+    transform-box: view-box;
+  }
+
+  /* 最亮的核心线条 */
+  .ink-core {
+    stroke: #eafcff;
+    stroke-width: 5.5;
+    filter: url(#glowCore);
+  }
+
+  /* 中层青蓝光 */
+  .ink-mid {
+    stroke: var(--cyan);
+    stroke-width: 11;
+    opacity: .55;
+    filter: url(#glowMid);
+  }
+
+  /* 外层大范围泛光 */
+  .ink-outer {
+    stroke: var(--cyan);
+    stroke-width: 24;
+    opacity: .22;
+    filter: url(#glowOuter);
+  }
+
+  /* 三层共用同一条路径与描边动画，因此完全同步 */
+  .ink path {
+    stroke-dasharray: var(--len);
+    stroke-dashoffset: var(--len);
+    animation: draw 1s cubic-bezier(.5, 0, .3, 1) forwards;
+    animation-delay: var(--delay);
+  }
+  @keyframes draw {
+    to { stroke-dashoffset: 0; }
+  }
+
+  /* 下划线（每层里的最后一条路径）：更亮的青蓝，像终端提示线 */
+  .ink-core path:last-child { stroke: #b6f7ff; }
+  .ink-mid path:last-child { stroke: #2ee0ff; }
+
+  /* 写完前隐藏三层，避免未绘制部分出现残缺光点 */
+  .ink-core path, .ink-mid path, .ink-outer path { visibility: hidden; }
+  .ink-core path { visibility: visible; }
+
+  /* 收笔高光点：随着笔画移动到末端 */
+  .pen {
+    stroke: #ffffff;
+    stroke-width: 5;
+    stroke-linecap: round;
+    filter: url(#glowCore);
+    animation: penMove 1s linear forwards;
+    animation-delay: var(--delay);
+    opacity: 0;
+  }
+  @keyframes penMove {
+    0%   { opacity: 1; }
+    92%  { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* ===================== 爆发光晕 ===================== */
+  #fx {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: visible;
+  }
+
+  .halo {
+    fill: none;
+    stroke: var(--cyan-soft);
+    stroke-width: 3;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: haloOut 1.5s cubic-bezier(.1, .7, .3, 1) forwards;
+  }
+  .halo.h2 { animation-delay: .16s; stroke-width: 2; }
+  .halo.h3 { animation-delay: .32s; stroke-width: 1.4; }
+  @keyframes haloOut {
+    0%   { transform: scale(.05); opacity: 1; }
+    70%  { opacity: .55; }
+    100% { transform: scale(1); opacity: 0; }
+  }
+
+  .spark {
+    fill: #dffaff;
+    animation: sparkOut var(--sdur, 1s) cubic-bezier(.15, .75, .3, 1) forwards;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  @keyframes sparkOut {
+    0%   { transform: translate(0, 0) scale(1.2); opacity: 1; }
+    100% { transform: translate(var(--sx), var(--sy)) scale(0); opacity: 0; }
+  }
+
+  /* ===================== 界面文字 ===================== */
+  .meta {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: clamp(9.5px, 2.6vw, 12px);
+    letter-spacing: .22em;
+    color: rgba(120, 220, 255, .55);
+    text-transform: uppercase;
+  }
+
+  .meta .rule {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(to right, rgba(56, 232, 255, 0), rgba(56, 232, 255, .5), rgba(56, 232, 255, 0));
+  }
+
+  .cursor-blink {
+    display: inline-block;
+    width: .55em;
+    height: 1.05em;
+    margin-left: .25em;
+    background: var(--cyan);
+    vertical-align: -.18em;
+    animation: blink 1.05s steps(1, end) infinite;
+  }
+  @keyframes blink { 0%, 50% { opacity: 1; } 50.01%, 100% { opacity: 0; } }
+
+  /* 尊重"减少动态效果"设置 */
+  @media (prefers-reduced-motion: reduce) {
+    .grid, .grid-fine, .scanline, .cursor-blink { animation: none !important; }
+    .ink path { animation: none !important; stroke-dashoffset: 0 !important; }
+    .pen { display: none; }
+    .halo, .spark { animation: none !important; opacity: 0 !important; }
+  }
+
+  @media (max-height: 560px) {
+    svg.sign { max-height: 40vh; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="grid" aria-hidden="true"></div>
+  <div class="grid-fine" aria-hidden="true"></div>
+  <div class="vignette" aria-hidden="true"></div>
+  <div class="scanline" aria-hidden="true"></div>
+
+  <main class="stage">
+    <div class="meta">
+      <span>SIGNATURE</span>
+      <span class="rule"></span>
+      <span id="status">DRAWING<span class="cursor-blink"></span></span>
+    </div>
+
+    <div class="sig-wrap">
+      <!-- viewBox 左右各留余量：倾斜会把字母顶部往右推，不补余量会被裁掉 -->
+      <svg class="sign" viewBox="-36 0 972 300" role="img" aria-label="Lansky 发光动态签名">
+        <defs>
+          <!-- 三层辉光滤镜：核心锐利、外层弥散 -->
+          <filter id="glowCore" x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur stdDeviation="2.2" result="b1" />
+            <feMerge>
+              <feMergeNode in="b1" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+
+          <filter id="glowMid" x="-60%" y="-60%" width="220%" height="220%">
+            <feGaussianBlur stdDeviation="7" result="b2" />
+            <feMerge>
+              <feMergeNode in="b2" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+
+          <filter id="glowOuter" x="-90%" y="-90%" width="280%" height="280%">
+            <feGaussianBlur stdDeviation="18" />
+          </filter>
+        </defs>
+
+        <!-- ===== 外层泛光 ===== -->
+        <g class="ink ink-outer" id="layerOuter"></g>
+        <!-- ===== 中层青蓝 ===== -->
+        <g class="ink ink-mid" id="layerMid"></g>
+        <!-- ===== 核心亮线 ===== -->
+        <g class="ink ink-core" id="layerCore"></g>
+        <!-- ===== 各笔画的收笔高光点 ===== -->
+        <g id="pens"></g>
+        <!-- ===== 爆发特效（光晕/粒子） ===== -->
+        <g id="fx"></g>
+      </svg>
+    </div>
+
+    <div class="meta">
+      <span id="tagline">LANSKY</span>
+      <span class="rule"></span>
+      <span>v1.0</span>
+    </div>
+  </main>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ============================================================
+     1. 亲手设计的字母笔画路径（viewBox 900x300 坐标系）
+        每个字母由若干"一笔"组成，按书写顺序排列 → 实现一笔一划的效果
+     ============================================================ */
+  // 笔画顺序即书写顺序：先写完 Lansky，最后一笔是名字正下方的下划线
+  var STROKES = [
+    // ---- L ----  (x: 62 → 150)
+    'M62 66 L62 234 L150 234',
+    // ---- a ----  (x: 172 → 258)
+    'M258 152 C244 126 216 122 202 142 C186 164 192 204 216 220 C240 235 258 224 260 202',
+    'M260 136 L260 234',
+    'M260 224 C276 238 296 236 304 218',
+    // ---- n ----  (x: 328 → 388)
+    'M328 136 L328 234',
+    'M328 172 C346 138 388 136 388 176 L388 234',
+    // ---- s ----  (x: 416 → 486)
+    'M486 146 C474 129 438 124 423 141 C409 157 431 174 455 181 C481 188 498 200 486 220 C473 240 435 243 420 224',
+    // ---- k ----  (x: 518 → 592)
+    'M518 66 L518 234',
+    'M592 136 L524 190',
+    'M552 174 L596 234',
+    // ---- y ----  (x: 620 → 724)
+    'M620 140 C636 162 652 184 670 206',
+    'M724 140 C716 186 688 234 658 258',
+    // ---- 收笔上挑 ----
+    'M658 258 C680 244 696 232 706 218',
+    // ---- 下划线：名字正下方，一条从左扫到右的发光横线（终端执行成功的那种提示线）----
+    'M62 286 L724 286'
+  ];
+
+  // 下划线的路径（用于独立标记更短的动画时长）
+  var UNDERLINE_D = 'M62 286 L724 286';
+
+  var CORE = document.getElementById('layerCore');
+  var MID = document.getElementById('layerMid');
+  var OUTER = document.getElementById('layerOuter');
+  var PENS = document.getElementById('pens');
+  var FX = document.getElementById('fx');
+  var statusEl = document.getElementById('status');
+
+  var NS = 'http://www.w3.org/2000/svg';
+
+  /* 节奏参数（第 1 条需求：整体速度比原来快一倍）
+     原为 DUR=0.75 / GAP=0.10，现减半 */
+  var DUR = 0.375;        // 每一笔的书写时长（秒）
+  var GAP = 0.05;         // 笔画之间的停顿
+
+  // 下划线画得更快，像终端刷出的一行提示
+  function durationOf(d) { return d === UNDERLINE_D ? DUR * 0.5 : DUR; }
+
+  function el(name) { return document.createElementNS(NS, name); }
+
+  /* 用 getTotalLength 实测路径长度，设置 dasharray/dashoffset。
+     这一步必须实测 —— 手算路径长度不现实。 */
+  var totalDelay = 0;     // 所有笔画动画结束的时刻（秒）
+  var nodes = [];
+
+  STROKES.forEach(function (d, i) {
+    var dur = durationOf(d);
+    var delay = totalDelay;          // 严格首尾相接，总时长 = Σ 各笔时长
+    totalDelay += dur + GAP;
+
+    // 三层用同一条路径，样式不同 → 完全同步的辉光层次
+    [CORE, MID, OUTER].forEach(function (layer) {
+      var p = el('path');
+      p.setAttribute('d', d);
+      p.style.setProperty('--delay', delay + 's');
+      p.style.animationDuration = dur + 's';
+      layer.appendChild(p);
+      nodes.push(p);
+    });
+
+    // 收笔高光点：沿路径末端闪一下
+    var pen = el('circle');
+    pen.setAttribute('r', '3.2');
+    pen.setAttribute('class', 'pen');
+    pen.setAttribute('cx', '0');
+    pen.setAttribute('cy', '0');
+    pen.style.setProperty('--delay', delay + 's');
+    pen.style.animationDuration = dur + 's';
+    pen.dataset.d = d;
+    pen.dataset.dur = dur;
+    PENS.appendChild(pen);
+  });
+
+  /* 路径实测：必须在 SVG 已挂载、且在正确坐标系下测量 */
+  function measure() {
+    var paths = CORE.querySelectorAll('path');
+    paths.forEach(function (p, i) {
+      var len = p.getTotalLength();
+      // 稍微超一点，避免斜线/曲线末端残留一小截
+      var v = Math.ceil(len * 1.02) + 2;
+      p.style.setProperty('--len', v);
+      p.style.strokeDasharray = v;
+      p.style.strokeDashoffset = v;
+      // 同序号的中层/外层同步
+      var mid = MID.querySelectorAll('path')[i];
+      var out = OUTER.querySelectorAll('path')[i];
+      [mid, out].forEach(function (q) {
+        if (!q) return;
+        q.style.setProperty('--len', v);
+        q.style.strokeDasharray = v;
+        q.style.strokeDashoffset = v;
+      });
+    });
+
+    // 让收笔高光点沿着路径末端移动
+    var pens = PENS.querySelectorAll('.pen');
+    pens.forEach(function (pen) {
+      var d = pen.dataset.d;
+      var tmp = el('path');
+      tmp.setAttribute('d', d);
+      CORE.appendChild(tmp);
+      var len = tmp.getTotalLength();
+      CORE.removeChild(tmp);
+      pen.dataset.len = len;
+      animatePen(pen, len);
+    });
+  }
+
+  function animatePen(pen, len) {
+    var t0 = performance.now();
+    var delayMs = parseFloat(pen.style.getPropertyValue('--delay')) * 1000;
+    var durMs = parseFloat(pen.dataset.dur) * 1000;
+
+    function step(now) {
+      var t = now - t0 - delayMs;
+      if (t >= 0) {
+        var k = Math.min(1, t / durMs);
+        var pt = pointAtLengthCached(pen.dataset.d, len * k);
+        pen.setAttribute('cx', pt.x.toFixed(1));
+        pen.setAttribute('cy', pt.y.toFixed(1));
+      }
+      if (t < durMs + 60) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  // 复用一个临时 path 做长度采样，避免反复建节点
+  var sampler = el('path');
+  sampler.setAttribute('fill', 'none');
+  sampler.style.visibility = 'hidden';
+  function pointAtLengthCached(d, l) {
+    if (sampler.getAttribute('d') !== d) {
+      sampler.setAttribute('d', d);
+      if (!sampler.parentNode) CORE.appendChild(sampler);
+    }
+    return sampler.getPointAtLength(l);
+  }
+
+  /* ============================================================
+     2. 光晕爆发 + 粒子闪烁（名字写完后，在最后一个字母处）
+     ============================================================ */
+  var burstDone = false;
+
+  /* 倾斜参数：必须与 CSS 里 .ink 的 skewX / transform-origin 保持一致。
+     路径数据本身没变，是 CSS 在渲染时斜切的，
+     所以从路径算出来的坐标要手动过一遍同样的斜切，否则爆发点会偏左。 */
+  var SKEW_DEG = -10;
+  var PIVOT_Y = 234;
+
+  function skewPoint(pt) {
+    var rad = SKEW_DEG * Math.PI / 180;
+    return {
+      x: pt.x + Math.tan(rad) * (pt.y - PIVOT_Y),
+      y: pt.y
+    };
+  }
+
+  function burst(cx, cy) {
+    // --- 三圈向外扩散的光晕（半径收小，避免光环过大抢戏）---
+    [0, 1, 2].forEach(function (i) {
+      var c = el('circle');
+      c.setAttribute('cx', cx);
+      c.setAttribute('cy', cy);
+      c.setAttribute('r', i === 0 ? 128 : (i === 1 ? 100 : 76));
+      c.setAttribute('class', 'halo' + (i === 1 ? ' h2' : i === 2 ? ' h3' : ''));
+      c.setAttribute('stroke', i === 0 ? '#9ff4ff' : '#38e8ff');
+      FX.appendChild(c);
+    });
+
+    // --- 粒子闪烁：环绕最后一个字母向外飞散 ---
+    var count = window.innerWidth < 480 ? 26 : 42;
+    for (var i = 0; i < count; i++) {
+      var ang = (Math.PI * 2 * i / count) + (Math.random() - 0.5) * 0.5;
+      var dist = 32 + Math.random() * 108;
+      var s = el('circle');
+      s.setAttribute('cx', cx);
+      s.setAttribute('cy', cy);
+      s.setAttribute('r', (1.6 + Math.random() * 3.2).toFixed(1));
+      s.setAttribute('class', 'spark');
+      s.style.setProperty('--sx', (Math.cos(ang) * dist).toFixed(1) + 'px');
+      s.style.setProperty('--sy', (Math.sin(ang) * dist).toFixed(1) + 'px');
+      s.style.setProperty('--sdur', (0.7 + Math.random() * 0.9).toFixed(2) + 's');
+      s.style.animationDelay = (Math.random() * 0.18).toFixed(2) + 's';
+      FX.appendChild(s);
+    }
+
+    // 清掉动画结束后的节点，保持 DOM 干净
+    setTimeout(function () { FX.innerHTML = ''; }, 3200);
+
+    // 状态栏文字变化
+    setTimeout(function () {
+      statusEl.innerHTML = 'READY<span class="cursor-blink"></span>';
+    }, 400);
+  }
+
+  function fireBurst() {
+    if (burstDone) return;
+    burstDone = true;
+    // 名字末尾（收笔上挑的末端）：下划线是从左往右扫的，
+    // 用它的末端当爆发点会落到右下角，所以这里明确取"y 字收笔"那一笔的终点。
+    var last = CORE.querySelectorAll('path');
+    var glyphPath = last[last.length - 2];      // 倒数第二条 = 收笔上挑（最后一条是下划线）
+    var raw = glyphPath.getPointAtLength(glyphPath.getTotalLength());
+    var pt = skewPoint(raw);                    // 换成屏幕上实际显示的位置
+    burst(pt.x, pt.y);
+  }
+
+  /* ============================================================
+     3. 启动：等字体/布局稳定后开始描边，描完触发爆发
+     ============================================================ */
+  var reduceMotion = window.matchMedia &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function start() {
+    measure();
+
+    if (reduceMotion) {
+      // 不做动画，直接显示完整签名
+      nodes.forEach(function (p) { p.style.strokeDashoffset = 0; });
+      statusEl.textContent = 'READY';
+      return;
+    }
+
+    // 所有笔画（含最后的下划线）都画完之后，再爆发光晕
+    var totalSeconds = totalDelay + 0.25;
+    setTimeout(fireBurst, totalSeconds * 1000);
+  }
+
+  // 用 document.fonts.ready 确保布局测量时字体已就绪
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(function () { setTimeout(start, 60); });
+  } else {
+    setTimeout(start, 120);
+  }
+
+  // 重新触发一轮（点击画面重播）
+  document.body.addEventListener('click', function () {
+    burstDone = false;
+    statusEl.innerHTML = 'DRAWING<span class="cursor-blink"></span>';
+    // 重置描边动画
+    CORE.querySelectorAll('path').forEach(function (p, i) {
+      var len = p.style.strokeDasharray;
+      p.style.animation = 'none';
+      void p.offsetWidth;
+      p.style.animation = '';
+    });
+    start();
+  });
+})();
+</script>
+</body>
+</html>

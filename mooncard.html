@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b1030">
+<title>中秋快乐 · 千里共婵娟</title>
+<style>
+  /* ============================================================
+     中秋贺卡  mooncard.html
+     层级：星空(0) → 月亮(1) → 云(2) → 桂花(3) → 文案(4)
+     ============================================================ */
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  :root {
+    /* 月亮直径：受宽、高双重约束。上限给足，让它在长屏手机上够"巨大" */
+    --moon: min(52vmin, 300px, 34vh);
+    --gold: #ffd479;
+  }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;                /* 贺卡不滚动，避免手机上误滑 */
+  }
+
+  body {
+    background:
+      radial-gradient(ellipse 80% 50% at 50% 88%, rgba(120, 70, 190, .55) 0%, rgba(0,0,0,0) 70%),
+      radial-gradient(ellipse 60% 40% at 15% 10%, rgba(70, 60, 170, .45) 0%, rgba(0,0,0,0) 70%),
+      linear-gradient(178deg, #05071c 0%, #0b1030 28%, #1b1450 58%, #35185e 80%, #4a1d63 100%);
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+                 "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: #fff;
+    position: relative;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* ===================== 星空 ===================== */
+  #stars {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .star {
+    position: absolute;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 0 6px rgba(255, 255, 255, .9);
+    animation-name: twinkle;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+  }
+  @keyframes twinkle {
+    0%, 100% { opacity: .15; transform: scale(.7); }
+    50%      { opacity: var(--peak, 1); transform: scale(1.15); }
+  }
+
+  /* ===================== 页面骨架：网格行各占其位，永不重叠 ===================== */
+  /*
+     第 1 行 = 月亮（居中，高度自适应）
+     第 2 行 = 祝福语 + 提示
+     这样铃屏/矮屏都不会出现"文字压在月亮上"的情况 —— 不再用 fixed 定位硬叠。
+  */
+  .sky {
+    position: relative;
+    z-index: 4;
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: grid;
+    /* 第 1 行弹性吸收剩余空间（月亮在其中居中）
+       第 2、3 行按内容高度贴底
+       绝不用 align-content:center —— 内容超高时它会让行块往上下两个方向溢出，
+       矮屏上月亮就会把祝福语压住。 */
+    grid-template-rows: minmax(0, 1fr) auto auto;
+    justify-items: center;
+    gap: 14px;
+    padding: 16px 20px calc(18px + env(safe-area-inset-bottom));
+  }
+
+  /* ===================== 月亮 ===================== */
+  .moon-wrap {
+    position: relative;
+    align-self: center;
+    width: var(--moon);
+    height: var(--moon);
+    z-index: 1;
+  }
+
+  /* 柔和光晕：多层径向渐变叠出来的大气感 */
+  .moon-halo {
+    position: absolute;
+    left: 50%; top: 50%;
+    width: 320%; height: 320%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    pointer-events: none;
+    background: radial-gradient(circle,
+      rgba(255, 240, 200, .50) 0%,
+      rgba(255, 226, 160, .30) 16%,
+      rgba(255, 210, 130, .14) 30%,
+      rgba(190, 160, 255, .07) 46%,
+      rgba(0, 0, 0, 0) 68%);
+    filter: blur(6px);
+    animation: haloBreath 7s ease-in-out infinite;
+  }
+  @keyframes haloBreath {
+    0%, 100% { opacity: .85; transform: translate(-50%, -50%) scale(1); }
+    50%      { opacity: 1;   transform: translate(-50%, -50%) scale(1.07); }
+  }
+
+  /* 月球本体（可点击）。
+     注意：浮动动画放在 .moon 上会覆盖网格布局算出的位置，
+     矮屏上就会把月亮推进文案里。所以浮动交给内层 .moon-inner，外层只管布局。 */
+  .moon {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    cursor: pointer;
+    touch-action: manipulation;
+    transform: none !important;      /* 布局位置由网格决定，禁止外部再动它 */
+    background:
+      radial-gradient(circle at 34% 30%, #fffdf3 0%, #fff4d2 34%, #ffdf9e 62%, #f2c46a 86%, #d9a84e 100%);
+    box-shadow:
+      0 0 34px 8px rgba(255, 234, 170, .55),
+      0 0 90px 26px rgba(255, 214, 130, .30),
+      0 0 170px 70px rgba(180, 140, 255, .20),
+      inset -14px -12px 34px rgba(180, 140, 60, .35),
+      inset 10px 8px 26px rgba(255, 255, 255, .55);
+  }
+
+  /* 内层负责浮动 + 点击放大 */
+  .moon-inner {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    animation: moonFloat 9s ease-in-out infinite;
+    transition: transform .5s cubic-bezier(.34, 1.56, .64, 1);
+  }
+  @keyframes moonFloat {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-10px); }
+  }
+
+  /* 环形山纹理 */
+  .moon::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 66% 62%, rgba(196, 156, 84, .34) 0 7%, rgba(0,0,0,0) 8%),
+      radial-gradient(circle at 30% 70%, rgba(196, 156, 84, .26) 0 5%, rgba(0,0,0,0) 6%),
+      radial-gradient(circle at 72% 30%, rgba(196, 156, 84, .22) 0 4%, rgba(0,0,0,0) 5%),
+      radial-gradient(circle at 46% 46%, rgba(196, 156, 84, .16) 0 9%, rgba(0,0,0,0) 10%),
+      radial-gradient(circle at 18% 40%, rgba(196, 156, 84, .18) 0 3.4%, rgba(0,0,0,0) 4.4%);
+    pointer-events: none;
+  }
+
+  /* 让月亮"呼吸"发光的脉动 */
+  .moon-glowpulse {
+    position: absolute;
+    inset: -6%;
+    border-radius: 50%;
+    pointer-events: none;
+    box-shadow: 0 0 0 0 rgba(255, 226, 150, .55);
+    animation: ringPulse 4.5s ease-out infinite;
+  }
+  @keyframes ringPulse {
+    0%   { box-shadow: 0 0 0 0 rgba(255, 226, 150, .45); }
+    70%  { box-shadow: 0 0 0 34px rgba(255, 226, 150, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 226, 150, 0); }
+  }
+
+  /* 点击后放大 */
+  .moon-wrap.boost .moon-inner { transform: scale(1.34); }
+  .moon-wrap.boost .moon-halo { opacity: 1; }
+
+  /* 月亮上的玉兔剪影（细节彩蛋） */
+  .moon .rabbit {
+    position: absolute;
+    right: 20%;
+    top: 40%;
+    font-size: calc(var(--moon) * 0.13);
+    opacity: .5;
+    filter: blur(.2px);
+    pointer-events: none;
+  }
+
+  /* ===================== 云朵 ===================== */
+  #clouds {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .cloud {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at center,
+      rgba(226, 214, 255, .40) 0%,
+      rgba(200, 186, 255, .22) 45%,
+      rgba(0, 0, 0, 0) 72%);
+    filter: blur(14px);
+    animation-name: drift;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+  }
+  @keyframes drift {
+    0%   { transform: translateX(-40vw) translateY(0) scale(1); opacity: 0; }
+    12%  { opacity: var(--o, .8); }
+    88%  { opacity: var(--o, .8); }
+    100% { transform: translateX(115vw) translateY(var(--dy, -8px)) scale(1.12); opacity: 0; }
+  }
+
+  /* ===================== 飘落的桂花花瓣 ===================== */
+  #petals {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .petal {
+    position: absolute;
+    top: -8vh;
+    will-change: transform;
+    animation-name: petalFall;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+    line-height: 1;
+  }
+  @keyframes petalFall {
+    0%   { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 0; }
+    8%   { opacity: var(--o, .9); }
+    50%  { transform: translate3d(var(--dx, 30px), 55vh, 0) rotate(200deg); }
+    90%  { opacity: var(--o, .9); }
+    100% { transform: translate3d(0, 118vh, 0) rotate(420deg); opacity: 0; }
+  }
+
+  /* ===================== 文案区 ===================== */
+  .blessings {
+    width: 100%;
+    max-width: 460px;
+    /* 固定高度：逐行打字时布局不跳动，也保证三行都放得下 */
+    height: 7.5em;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    gap: .4em;
+    text-align: center;
+  }
+
+  .line {
+    font-size: clamp(15px, 4.5vw, 20px);
+    line-height: 1.5;
+    letter-spacing: 1.5px;
+    color: #fff;
+    /* 描边+投影，保证压在月亮光晕上也清晰可读 */
+    text-shadow:
+      0 1px 2px rgba(10, 5, 40, .9),
+      0 2px 10px rgba(10, 5, 40, .8),
+      0 0 22px rgba(255, 226, 160, .35);
+    opacity: 0;
+    min-height: 1.5em;
+    max-width: 100%;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+  .line.show { opacity: 1; }
+
+  /* 最后一行（祝福语主体）更醒目 */
+  .line.final {
+    font-size: clamp(17px, 5.4vw, 24px);
+    font-weight: 700;
+    color: #ffe9b8;
+    letter-spacing: 2px;
+  }
+
+  .cursor {
+    display: inline-block;
+    width: 2px;
+    height: 1em;
+    margin-left: 3px;
+    background: currentColor;
+    vertical-align: -.12em;
+    animation: blink .72s steps(1, end) infinite;
+  }
+  @keyframes blink { 0%, 50% { opacity: 1; } 50.01%, 100% { opacity: 0; } }
+
+  .hint {
+    margin-top: 18px;
+    font-size: clamp(11px, 3.2vw, 13px);
+    letter-spacing: 2px;
+    color: rgba(255, 255, 255, .5);
+    animation: hintFade 2.8s ease-in-out infinite;
+    opacity: 0;
+    transition: opacity .8s ease;
+  }
+  .hint.show { opacity: 1; }
+  @keyframes hintFade {
+    0%, 100% { opacity: .3; }
+    50%      { opacity: .8; }
+  }
+
+  /* ===================== 金色粒子 ===================== */
+  #particles {
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .particle {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(circle, #fffbe8 0%, var(--gold) 45%, rgba(255, 180, 60, 0) 72%);
+    box-shadow: 0 0 10px 2px rgba(255, 214, 130, .85);
+    animation: burst var(--dur, 1.5s) cubic-bezier(.15, .7, .3, 1) forwards;
+    will-change: transform, opacity;
+  }
+  @keyframes burst {
+    0%   { transform: translate(-50%, -50%) translate(0, 0) scale(.4); opacity: 1; }
+    70%  { opacity: .95; }
+    100% {
+      transform: translate(-50%, -50%) translate(var(--tx), var(--ty)) scale(.1);
+      opacity: 0;
+    }
+  }
+
+  /* 小屏/矮屏收紧 */
+  @media (max-height: 700px) {
+    :root { --moon: min(46vmin, 240px, 30vh); }
+    .sky { gap: 10px; }
+    .blessings { height: 7em; gap: .3em; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .star, .petal, .cloud, .moon, .moon-halo, .moon-glowpulse, .cursor, .hint {
+      animation: none !important;
+    }
+    .star { opacity: .8; }
+    .line { opacity: 1; }
+  }
+</style>
+</head>
+<body>
+
+  <div id="stars" aria-hidden="true"></div>
+
+  <div id="clouds" aria-hidden="true"></div>
+  <div id="petals" aria-hidden="true"></div>
+  <div id="particles" aria-hidden="true"></div>
+
+  <main class="sky">
+    <!-- 第 1 行：月亮 -->
+    <div class="moon-wrap" id="moonWrap">
+      <div class="moon-halo"></div>
+      <div class="moon" id="moon" role="button" tabindex="0" aria-label="点一下月亮">
+        <div class="moon-inner">
+          <span class="rabbit">🐇</span>
+        </div>
+      </div>
+      <div class="moon-glowpulse"></div>
+    </div>
+
+    <!-- 第 2 行：祝福语 -->
+    <div class="blessings" id="blessings">
+      <p class="line" data-line="0"></p>
+      <p class="line" data-line="1"></p>
+      <p class="line final" data-line="2"></p>
+    </div>
+
+    <div class="hint" id="hint">轻触月亮 · 有惊喜</div>
+  </main>
+
+<script>
+(function () {
+  'use strict';
+
+  var reduceMotion = window.matchMedia &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function rnd(a, b) { return Math.random() * (b - a) + a; }
+
+  /* ============ 1. 满天星星 ============ */
+  (function buildStars() {
+    var layer = document.getElementById('stars');
+    var n = window.innerWidth < 480 ? 90 : 150;
+    var frag = document.createDocumentFragment();
+    for (var i = 0; i < n; i++) {
+      var s = document.createElement('span');
+      s.className = 'star';
+      var size = rnd(1, 2.8);
+      s.style.width = size.toFixed(1) + 'px';
+      s.style.height = size.toFixed(1) + 'px';
+      s.style.left = rnd(0, 100).toFixed(2) + '%';
+      s.style.top = rnd(0, 100).toFixed(2) + '%';
+      s.style.setProperty('--peak', rnd(0.55, 1).toFixed(2));
+      s.style.animationDuration = rnd(1.6, 5).toFixed(2) + 's';
+      s.style.animationDelay = (-rnd(0, 5)).toFixed(2) + 's';
+      // 少量星星偏暖色，像桂花/金星
+      if (Math.random() < 0.18) {
+        s.style.background = '#ffe6b0';
+        s.style.boxShadow = '0 0 7px rgba(255, 220, 150, .95)';
+      }
+      frag.appendChild(s);
+    }
+    layer.appendChild(frag);
+  })();
+
+  /* ============ 2. 飘落的桂花花瓣 + 金色小星 ============ */
+  (function buildPetals() {
+    var layer = document.getElementById('petals');
+    var GLYPHS = ['🌸', '🌼', '✨', '⭐', '·'];
+    var n = window.innerWidth < 480 ? 22 : 34;
+    var frag = document.createDocumentFragment();
+    for (var i = 0; i < n; i++) {
+      var p = document.createElement('span');
+      p.className = 'petal';
+      p.textContent = GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
+      var size = rnd(9, 20);
+      var dur = rnd(9, 18);                     // 缓缓飘落
+      p.style.left = rnd(-4, 100).toFixed(2) + 'vw';
+      p.style.fontSize = size.toFixed(1) + 'px';
+      p.style.setProperty('--dx', rnd(-46, 46).toFixed(1) + 'px');
+      p.style.setProperty('--o', rnd(0.45, 0.95).toFixed(2));
+      p.style.animationDuration = dur.toFixed(2) + 's';
+      p.style.animationDelay = (-rnd(0, dur)).toFixed(2) + 's';   // 负延迟：一开始就布满画面
+      if (Math.random() < 0.5) p.style.filter = 'hue-rotate(-18deg) saturate(1.3)';
+      frag.appendChild(p);
+    }
+    layer.appendChild(frag);
+  })();
+
+  /* ============ 3. 云朵飘过月亮 ============ */
+  var CLOUD_SPECS = [
+    { top: 0.28, w: 0.95, h: 0.30, dur: 34, delay: -6 },
+    { top: 0.60, w: 1.25, h: 0.26, dur: 46, delay: -20 },
+    { top: 0.42, w: 0.75, h: 0.22, dur: 28, delay: -14 },
+    { top: 0.12, w: 1.05, h: 0.20, dur: 52, delay: -34 }
+  ];
+
+  function placeClouds() {
+    var layer = document.getElementById('clouds');
+    var mr = document.getElementById('moonWrap').getBoundingClientRect();
+    layer.innerHTML = '';
+    CLOUD_SPECS.forEach(function (sp) {
+      var c = document.createElement('div');
+      c.className = 'cloud';
+      var w = mr.width * sp.w;
+      var h = mr.width * sp.h;
+      c.style.width = w.toFixed(0) + 'px';
+      c.style.height = h.toFixed(0) + 'px';
+      // 云的高度围绕月亮分布，形成"月亮上云飘过"的效果
+      c.style.top = (mr.top + mr.height * sp.top - h / 2).toFixed(0) + 'px';
+      c.style.setProperty('--o', rnd(0.55, 0.9).toFixed(2));
+      c.style.setProperty('--dy', rnd(-14, 14).toFixed(1) + 'px');
+      c.style.animationDuration = sp.dur + 's';
+      c.style.animationDelay = sp.delay + 's';
+      layer.appendChild(c);
+    });
+  }
+  placeClouds();
+
+  /* ============ 4. 打字机：三行祝福语逐行打出 ============ */
+  var LINES = [
+    '海上生明月，天涯共此时。',
+    '无论相隔多远，愿这轮明月带去我的思念。',
+    '中秋快乐，阖家团圆！🌕'
+  ];
+  var lineEls = [
+    document.querySelector('[data-line="0"]'),
+    document.querySelector('[data-line="1"]'),
+    document.querySelector('[data-line="2"]')
+  ];
+  var hintEl = document.getElementById('hint');
+
+  function typeLine(el, text, speed, done) {
+    el.classList.add('show');
+    var cur = document.createElement('span');
+    cur.className = 'cursor';
+    el.appendChild(cur);
+    if (reduceMotion) {
+      el.textContent = text;
+      done();
+      return;
+    }
+    var i = 0;
+    (function tick() {
+      if (i < text.length) {
+        cur.insertAdjacentText('beforebegin', text.charAt(i++));
+        setTimeout(tick, speed);
+      } else {
+        // 打完先把光标留在原地一小会儿，再移除
+        setTimeout(function () { cur.remove(); done(); }, 700);
+      }
+    })();
+  }
+
+  function runSequence() {
+    if (reduceMotion) {
+      LINES.forEach(function (t, i) { lineEls[i].classList.add('show'); lineEls[i].textContent = t; });
+      hintEl.classList.add('show');
+      return;
+    }
+    var i = 0;
+    (function next() {
+      if (i >= LINES.length) { hintEl.classList.add('show'); return; }
+      var idx = i++;
+      // 第三行稍慢、更有仪式感
+      typeLine(lineEls[idx], LINES[idx], idx === 2 ? 150 : 110, next);
+    })();
+  }
+  setTimeout(runSequence, 700);
+
+  /* ============ 5. 点击月亮：放大 + 金色粒子迸发 ============ */
+  var moonWrap = document.getElementById('moonWrap');
+  var moon = document.getElementById('moon');
+  var particleLayer = document.getElementById('particles');
+  var boosting = false;
+
+  function burst(cx, cy) {
+    var count = window.innerWidth < 480 ? 26 : 38;
+    var frag = document.createDocumentFragment();
+    var parts = [];
+    var maxR = Math.min(window.innerWidth, window.innerHeight) * 0.46;
+
+    for (var i = 0; i < count; i++) {
+      var p = document.createElement('span');
+      p.className = 'particle';
+      var size = rnd(3, 9);
+      p.style.width = size.toFixed(1) + 'px';
+      p.style.height = size.toFixed(1) + 'px';
+      p.style.left = cx.toFixed(1) + 'px';
+      p.style.top = cy.toFixed(1) + 'px';
+
+      // 沿圆周均匀撒开 + 随机抖动，形成爆开的感觉
+      var ang = (Math.PI * 2 * i / count) + rnd(-0.28, 0.28);
+      var dist = rnd(maxR * 0.45, maxR);
+      p.style.setProperty('--tx', (Math.cos(ang) * dist).toFixed(1) + 'px');
+      p.style.setProperty('--ty', (Math.sin(ang) * dist).toFixed(1) + 'px');
+      p.style.setProperty('--dur', rnd(1.05, 1.9).toFixed(2) + 's');
+      p.style.animationDelay = rnd(0, 0.16).toFixed(2) + 's';
+
+      frag.appendChild(p);
+      parts.push(p);
+    }
+    particleLayer.appendChild(frag);
+
+    // 动画播完就移除，避免反复点击堆积 DOM
+    setTimeout(function () {
+      parts.forEach(function (n) { n.remove(); });
+    }, 2400);
+  }
+
+  function triggerBoost() {
+    var r = moon.getBoundingClientRect();
+    var cx = r.left + r.width / 2;
+    var cy = r.top + r.height / 2;
+
+    burst(cx, cy);
+
+    if (!boosting) {
+      boosting = true;
+      moonWrap.classList.add('boost');
+      setTimeout(function () {
+        moonWrap.classList.remove('boost');
+        boosting = false;
+      }, 1500);
+    }
+  }
+
+  moon.addEventListener('click', triggerBoost);
+  moon.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); triggerBoost(); }
+  });
+  // 点光晕区域也算点到月亮，手感更宽松
+  document.querySelector('.moon-halo').parentNode.addEventListener('click', function (e) {
+    if (e.target.classList.contains('moon-halo')) triggerBoost();
+  });
+
+  /* 屏幕旋转 / 改变尺寸后重算云的位置 */
+  var rz = null;
+  window.addEventListener('resize', function () {
+    clearTimeout(rz);
+    rz = setTimeout(placeClouds, 300);
+  });
+})();
+</script>
+</body>
+</html>

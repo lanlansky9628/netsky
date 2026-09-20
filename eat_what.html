@@ -9,7 +9,8 @@
 
 <style>
   /* ============================================================
-     今天吃什么 · 宿舍共享版（Supabase 云端菜单 + 云端历史）
+     今天吃什么 · 随机决策器
+     单机个人版：数据全部存在浏览器本地（localStorage），无需联网
      ============================================================ */
   *, *::before, *::after { box-sizing: border-box; }
   * { -webkit-tap-highlight-color: transparent; }
@@ -36,6 +37,7 @@
     margin: 0;
     font-family: var(--font);
     color: var(--ink);
+    /* 暖色调：橙黄 → 红 渐变 */
     background:
       radial-gradient(ellipse 90% 50% at 50% -8%, rgba(255, 214, 130, .85) 0%, rgba(255, 168, 60, 0) 62%),
       radial-gradient(ellipse 80% 45% at 12% 106%, rgba(255, 120, 40, .45) 0%, rgba(0, 0, 0, 0) 68%),
@@ -47,6 +49,7 @@
     user-select: none;
   }
 
+  /* 漂浮的食物 emoji 氛围层 */
   #floaties { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
   .floaty {
     position: absolute; left: 0; opacity: .16; filter: blur(.4px);
@@ -70,7 +73,7 @@
   .hero { text-align: center; padding-top: 6px; }
   .hero h1 {
     margin: 0;
-    font-size: clamp(22px, 6.4vw, 32px);
+    font-size: clamp(23px, 6.8vw, 34px);
     font-weight: 800; letter-spacing: 2px;
     color: #fff8ec;
     text-shadow: 0 3px 0 rgba(150, 40, 10, .35), 0 8px 22px rgba(120, 30, 0, .45);
@@ -82,31 +85,6 @@
     color: rgba(255, 248, 236, .78);
     text-shadow: 0 1px 6px rgba(120, 30, 0, .4);
   }
-
-  /* 同步状态条 */
-  .syncbar {
-    display: flex; align-items: center; justify-content: center; gap: 8px;
-    margin-top: 12px;
-    font-size: 11.5px; letter-spacing: 1px;
-    color: rgba(255, 248, 236, .82);
-    text-shadow: 0 1px 4px rgba(120, 30, 0, .5);
-  }
-  .syncbar .dot {
-    width: 7px; height: 7px; border-radius: 50%;
-    background: #8ef0a0; box-shadow: 0 0 9px rgba(140, 240, 160, .9);
-    flex: 0 0 auto;
-    transition: background .3s, box-shadow .3s;
-  }
-  .syncbar.local .dot { background: #ffd166; box-shadow: 0 0 9px rgba(255, 209, 102, .9); }
-  .syncbar.err .dot { background: #ff8a7a; box-shadow: 0 0 9px rgba(255, 138, 122, .9); }
-  .syncbar button {
-    font-family: inherit; font-size: 11px; letter-spacing: 1px;
-    color: #fff6e6;
-    background: rgba(255, 255, 255, .18);
-    border: 1px solid rgba(255, 255, 255, .38);
-    border-radius: 999px; padding: 3px 10px; cursor: pointer;
-  }
-  .syncbar button:active { transform: scale(.94); }
 
   /* ===================== 卡片 ===================== */
   .card {
@@ -129,11 +107,11 @@
   }
   .spacer { margin-left: auto; }
 
-  /* ===================== 输入 ===================== */
+  /* ===================== 添加 ===================== */
   .add-row { display: flex; gap: 8px; }
   .add-row input {
     flex: 1; min-width: 0;
-    font-family: inherit; font-size: 16px;
+    font-family: inherit; font-size: 16px;   /* ≥16px 防 iOS 聚焦缩放 */
     color: var(--ink); background: #fff;
     border: 2px solid rgba(255, 168, 60, .5);
     border-radius: 13px; padding: 12px 14px; outline: none;
@@ -154,22 +132,6 @@
     background: linear-gradient(160deg, #ffa62b, #f2701c 60%, #dc4a0f);
     box-shadow: 0 6px 16px rgba(200, 70, 10, .38), inset 0 1px 0 rgba(255, 255, 255, .45);
   }
-  .btn-add:disabled { opacity: .55; }
-
-  /* 昵称行 */
-  .nick-row {
-    display: flex; align-items: center; gap: 8px;
-    margin-bottom: 11px;
-    font-size: 12.5px; color: rgba(120, 40, 10, .62);
-  }
-  .nick-row input {
-    flex: 1; min-width: 0;
-    font-family: inherit; font-size: 13.5px;
-    color: var(--ink); background: rgba(255, 168, 60, .10);
-    border: 1.5px dashed rgba(216, 80, 20, .38);
-    border-radius: 10px; padding: 7px 11px; outline: none;
-  }
-  .nick-row input:focus { border-style: solid; border-color: var(--amber); background: #fff; }
 
   .chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 11px; }
   .chip {
@@ -201,12 +163,6 @@
     from { opacity: 0; transform: scale(.75); }
     to   { opacity: 1; transform: scale(1); }
   }
-  .food-item .who {
-    font-size: 10.5px; font-weight: 500;
-    color: rgba(138, 50, 8, .45);
-    padding-left: 6px;
-    border-left: 1px solid rgba(216, 80, 20, .28);   /* 与菜名分隔，不然会连成"火锅宿舍" */
-  }
   .food-item .del {
     width: 20px; height: 20px; flex: 0 0 auto;
     display: grid; place-items: center;
@@ -217,7 +173,6 @@
   }
   .food-item .del:active { transform: scale(.88); }
   .food-item .del:hover { background: rgba(216, 80, 20, .3); }
-  .food-item.pending { opacity: .55; }
 
   .empty-tip {
     margin-top: 12px; font-size: 13px; letter-spacing: .5px;
@@ -225,14 +180,6 @@
     padding: 14px 8px;
     border: 1.5px dashed rgba(200, 120, 40, .35); border-radius: 13px;
   }
-  .skeleton-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
-  .sk {
-    height: 34px; border-radius: 999px;
-    background: linear-gradient(90deg, rgba(255,168,60,.14) 25%, rgba(255,168,60,.3) 50%, rgba(255,168,60,.14) 75%);
-    background-size: 200% 100%;
-    animation: shimmer 1.4s linear infinite;
-  }
-  @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 
   /* ===================== 抽奖区 ===================== */
   .slot-card {
@@ -328,7 +275,7 @@
   .switch input:checked ~ .track { background: linear-gradient(120deg, #ffb03a, #ff7a1f); }
   .switch input:checked ~ .knob { transform: translateX(22px); background: #fff; }
 
-  /* ===================== 历史 ===================== */
+  /* ===================== 历史记录 ===================== */
   .history { display: flex; flex-direction: column; gap: 7px; }
   .hist-item {
     display: flex; align-items: center; gap: 10px;
@@ -344,14 +291,14 @@
     background: linear-gradient(150deg, #ffa62b, #e8461f);
   }
   .hist-item .name { flex: 1; font-weight: 600; color: #8a3208; }
-  .hist-item .who { font-size: 11.5px; color: rgba(120, 40, 10, .55); }
   .hist-item .time { font-size: 11px; color: rgba(120, 40, 10, .45); }
   .hist-empty { font-size: 13px; color: rgba(120, 40, 10, .42); text-align: center; padding: 8px; }
 
-  .btn-mini {
+  .btn-clear {
     font-size: 11.5px; color: rgba(120, 40, 10, .55);
     background: transparent; border: 1px dashed rgba(200, 120, 40, .4);
-    border-radius: 999px; padding: 3px 11px; cursor: pointer; font-family: inherit;
+    border-radius: 999px; padding: 3px 11px; cursor: pointer;
+    font-family: inherit;
   }
 
   /* ===================== 结果弹层 ===================== */
@@ -396,10 +343,6 @@
     color: #8a3208; background: rgba(255, 168, 60, .22);
     border: 1.5px solid rgba(240, 150, 60, .55);
   }
-  .verdict-cloud {
-    margin-top: 12px; font-size: 11.5px; letter-spacing: 1px;
-    color: rgba(150, 90, 30, .6); min-height: 1.3em;
-  }
 
   .confetti {
     position: fixed; top: -10vh; z-index: 21; font-size: 20px;
@@ -414,7 +357,7 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .floaty, .btn-spin, .confetti, .sk, #slotName.win { animation: none !important; }
+    .floaty, .btn-spin, .confetti, #slotName.win { animation: none !important; }
   }
 </style>
 </head>
@@ -426,15 +369,10 @@
 
     <header class="hero">
       <h1>今天吃什么？<span class="qw">交给命运吧</span></h1>
-      <p>宿舍共享版 · 你和室友同一份菜单</p>
-      <div class="syncbar" id="syncBar">
-        <span class="dot"></span>
-        <span id="syncText">正在连接云端…</span>
-        <button id="refreshBtn" type="button">刷新</button>
-      </div>
+      <p>选择困难症的终极解药</p>
     </header>
 
-    <!-- ===== 抽奖区 ===== -->
+    <!-- ===== 抽奖区（最醒目，放前面） ===== -->
     <section class="card slot-card">
       <div class="display">
         <div class="display-label">今 日 之 选</div>
@@ -458,18 +396,11 @@
       </div>
     </section>
 
-    <!-- ===== 菜单（云端） ===== -->
+    <!-- ===== 食物管理 ===== -->
     <section class="card">
       <div class="card-title">
-        <span>🍜 宿舍菜单</span>
-        <span class="badge" id="foodCount">—</span>
-        <span class="spacer"></span>
-        <span class="badge">云端同步</span>
-      </div>
-
-      <div class="nick-row">
-        <span>我的昵称</span>
-        <input id="nickInput" type="text" maxlength="12" autocomplete="off" placeholder="比如：3号床">
+        <span>🍜 我的菜单</span>
+        <span class="badge" id="foodCount">0 项</span>
       </div>
 
       <div class="add-row">
@@ -479,26 +410,19 @@
       </div>
 
       <div class="chips" id="chips"></div>
-      <div id="listBox">
-        <div class="skeleton-row">
-          <div class="sk" style="width:90px"></div><div class="sk" style="width:76px"></div>
-          <div class="sk" style="width:104px"></div><div class="sk" style="width:68px"></div>
-        </div>
-      </div>
+      <div id="listBox"></div>
     </section>
 
-    <!-- ===== 历史（云端） ===== -->
+    <!-- ===== 历史记录 ===== -->
     <section class="card">
       <div class="card-title">
-        <span>🕒 大家都吃了啥</span>
-        <span class="badge">最近 8 次</span>
-        <span class="spacer"></span>
-        <button class="btn-mini" id="refreshHistBtn">刷新</button>
+        <span>🕒 历史记录</span>
+        <button class="btn-clear" id="clearHistBtn" style="margin-left:auto">清空</button>
       </div>
       <div class="history" id="historyBox"></div>
     </section>
 
-    <p class="foot">数据存在云端 · 你和室友实时共享</p>
+    <p class="foot">数据保存在你自己的浏览器里 · 换设备不同步</p>
   </div>
 
   <!-- ===== 结果弹层 ===== -->
@@ -508,7 +432,6 @@
       <div class="verdict-kicker">今 天 就 吃</div>
       <div class="verdict-name" id="verdictName"></div>
       <div class="verdict-sub" id="verdictSub"></div>
-      <div class="verdict-cloud" id="verdictCloud"></div>
       <div class="verdict-actions">
         <button class="btn btn-retry" id="retryBtn">换一个</button>
         <button class="btn btn-ok" id="okBtn">就它了！</button>
@@ -521,201 +444,107 @@
   'use strict';
 
   /* ============================================================
-     1. Supabase 配置
-     publishable / anon key 是公开密钥，写在前端是安全的；
-     真正的门禁是数据库 RLS。切勿把 service_role(secret) key 放前端。
+     存储层：localStorage（单机版，无后端、无网络请求）
      ============================================================ */
-  var SUPABASE_URL = 'https://fedfguteqkstyamjlubt.supabase.co';
-  var SUPABASE_KEY = 'sb_publishable_eehHVSB6_7HSWyGrgOnziA_WN0h3cl3';
-  var T_FOODS = 'foods';
-  var T_HIST = 'eat_history';
+  var KEY_FOODS = 'eatwhat.foods';
+  var KEY_HIST = 'eatwhat.history';
+  var KEY_EXCLUDE = 'eatwhat.exclude';
+  var KEY_LAST = 'eatwhat.last';
 
-  var HIST_SHOW = 8;         // 历史展示条数
-  var POLL_MS = 10000;       // 轮询间隔（室友加了菜，最多 10 秒后你这边出现）
+  function read(key, fallback) {
+    try {
+      var raw = localStorage.getItem(key);
+      if (!raw) return fallback;
+      var v = JSON.parse(raw);
+      return v === null || v === undefined ? fallback : v;
+    } catch (e) { return fallback; }
+  }
+  function write(key, val) {
+    try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
+  }
 
-  var reduceMotion = window.matchMedia &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var DEFAULT_FOODS = ['酸菜鱼', '麻辣烫', '牛肉面', '黄焖鸡', '寿司', '烤肉', '汉堡', '饺子'];
+
+  var foods = read(KEY_FOODS, null);
+  if (!Array.isArray(foods)) {
+    foods = DEFAULT_FOODS.slice();     // 第一次打开给点灵感
+    write(KEY_FOODS, foods);
+  }
+  var history = read(KEY_HIST, []);
+  if (!Array.isArray(history)) history = [];
+  var excludeOn = read(KEY_EXCLUDE, false) === true;
+  var lastPick = read(KEY_LAST, null);
+  if (typeof lastPick === 'string') {
+    // 兼容早期版本可能写入的二次编码值（例如 "\"烤肉\""）
+    try {
+      var once = JSON.parse(lastPick);
+      if (typeof once === 'string') lastPick = once;
+    } catch (e) {}
+  }
 
   function $(id) { return document.getElementById(id); }
-  function rnd(a, b) { return Math.random() * (b - a) + a; }
 
   /* ============================================================
-     2. 本地只做"轻缓存"和偏好设置，不再是主数据源
+     漂浮食物氛围
      ============================================================ */
-  function lsGet(k, d) {
-    try { var v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; }
-  }
-  function lsSet(k, v) {
-    try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {}
-  }
-
-  var KEY_NICK = 'eatwhat.nick';
-  var KEY_EXCLUDE = 'eatwhat.exclude.v2';
-  var KEY_LAST = 'eatwhat.last.v2';
-  var KEY_CACHE_F = 'eatwhat.cache.foods';
-  var KEY_CACHE_H = 'eatwhat.cache.hist';
-
-  var nick = lsGet(KEY_NICK, '') || '';
-  var excludeOn = lsGet(KEY_EXCLUDE, false) === true;
-  var lastPick = lsGet(KEY_LAST, null);
-  if (typeof lastPick === 'string') {
-    try { var once = JSON.parse(lastPick); if (typeof once === 'string') lastPick = once; } catch (e) {}
-  }
+  (function buildFloaties() {
+    var layer = $('floaties');
+    var EMOJI = ['🍜', '🍕', '🍣', '🍔', '🥟', '🍢', '🍚', '🌮', '🍤', '🥘', '🍰', '🍩'];
+    var n = window.innerWidth < 480 ? 12 : 18;
+    var frag = document.createDocumentFragment();
+    for (var i = 0; i < n; i++) {
+      var s = document.createElement('span');
+      s.className = 'floaty';
+      s.textContent = EMOJI[i % EMOJI.length];
+      s.style.left = (Math.random() * 96) + '%';
+      s.style.fontSize = (16 + Math.random() * 26).toFixed(0) + 'px';
+      s.style.animationDuration = (16 + Math.random() * 18).toFixed(1) + 's';
+      s.style.animationDelay = (-Math.random() * 30).toFixed(1) + 's';
+      frag.appendChild(s);
+    }
+    layer.appendChild(frag);
+  })();
 
   /* ============================================================
-     3. Supabase 请求封装
-     ============================================================ */
-  function apiHeaders(extra) {
-    var h = {
-      'apikey': SUPABASE_KEY,
-      'Authorization': 'Bearer ' + SUPABASE_KEY,
-      'Content-Type': 'application/json'
-    };
-    for (var k in (extra || {})) h[k] = extra[k];
-    return h;
-  }
-
-  function api(path, options) {
-    options = options || {};
-    var ctrl = new AbortController();
-    var timer = setTimeout(function () { ctrl.abort(); }, 15000);
-
-    return fetch(SUPABASE_URL + '/rest/v1/' + path, {
-      method: options.method || 'GET',
-      headers: apiHeaders(options.headers),
-      body: options.body,
-      signal: ctrl.signal
-    }).then(function (res) {
-      clearTimeout(timer);
-      return res.text().then(function (text) {
-        var data = null;
-        try { data = text ? JSON.parse(text) : null; } catch (e) { data = text; }
-        if (!res.ok) {
-          var msg = (data && (data.message || data.hint || data.error)) || ('HTTP ' + res.status);
-          var err = new Error(msg);
-          err.status = res.status;
-          throw err;
-        }
-        return data;
-      });
-    }).catch(function (err) {
-      clearTimeout(timer);
-      if (err.name === 'AbortError') { var e2 = new Error('请求超时'); e2.kind = 'timeout'; throw e2; }
-      if (!err.status) {
-        var e3 = new Error('连不上云端：如果你是用 file:// 双击打开的，请改用网址访问');
-        e3.kind = 'network';
-        throw e3;
-      }
-      throw err;
-    });
-  }
-
-  function friendly(err) {
-    if (err.kind === 'network') return err.message;
-    if (err.kind === 'timeout') return '网络有点慢，稍后再试';
-    if (err.status === 401 || err.status === 403) return '没有权限，请检查数据库 RLS 策略';
-    if (err.status === 404) return '找不到数据表，请确认表名是 foods / eat_history';
-    if (err.status === 409) return '这道菜已经在菜单里了';
-    return err.message;
-  }
-
-  // 读菜单
-  function fetchFoods() {
-    return api(T_FOODS + '?select=id,name,added_by,created_at&order=created_at.asc');
-  }
-  // 加菜
-  function insertFood(name, by) {
-    return api(T_FOODS, {
-      method: 'POST',
-      headers: { 'Prefer': 'return=representation' },
-      body: JSON.stringify({ name: name, added_by: by || null })
-    });
-  }
-  // 删菜
-  function deleteFood(id) {
-    return api(T_FOODS + '?id=eq.' + encodeURIComponent(id), { method: 'DELETE' });
-  }
-  // 读历史
-  function fetchHistory() {
-    return api(T_HIST + '?select=id,name,drawn_by,created_at&order=created_at.desc&limit=' + HIST_SHOW);
-  }
-  // 写历史
-  function insertHistory(name, by) {
-    return api(T_HIST, {
-      method: 'POST',
-      headers: { 'Prefer': 'return=representation' },
-      body: JSON.stringify({ name: name, drawn_by: by || null })
-    });
-  }
-
-  /* ============================================================
-     4. 状态与同步指示
-     ============================================================ */
-  var foods = [];          // 云端菜单（主数据源）
-  var history = [];        // 云端历史
-  var cloudOK = false;     // 是否连上云端
-  var busy = false;
-
-  var syncBar = $('syncBar');
-  var syncText = $('syncText');
-
-  function setSync(state, text) {
-    syncBar.className = 'syncbar' + (state === 'ok' ? '' : ' ' + state);
-    syncText.textContent = text;
-  }
-
-  // 菜单数量变了就刷新状态条。增删之后必须调用，
-  // 否则会出现"列表已变、状态条还写着旧数量"的不一致。
-  function syncCountText() {
-    if (!cloudOK) return;
-    setSync('ok', '已连接云端 · ' + foods.length + ' 道菜');
-  }
-
-  /* ============================================================
-     5. 渲染
+     渲染：食物列表 / 历史
      ============================================================ */
   var listBox = $('listBox');
   var foodCount = $('foodCount');
 
   function renderFoods() {
-    foodCount.textContent = foods.length ? foods.length + ' 项' : '空';
+    foodCount.textContent = foods.length + ' 项';
     listBox.textContent = '';
 
     if (!foods.length) {
       var tip = document.createElement('div');
       tip.className = 'empty-tip';
-      tip.textContent = cloudOK ? '菜单还是空的，加几个菜吧 ✍️' : '暂时拿不到菜单，点上面的「刷新」试试';
+      tip.textContent = '还没有食物，先加几个吧 ✍️';
       listBox.appendChild(tip);
       return;
     }
 
     var wrap = document.createElement('div');
     wrap.className = 'food-list';
-
-    foods.forEach(function (f) {
+    foods.forEach(function (name, i) {
       var item = document.createElement('span');
       item.className = 'food-item';
 
       var label = document.createElement('span');
-      label.textContent = f.name;                 // textContent：天然防 XSS
-
-      if (f.added_by) {
-        var who = document.createElement('span');
-        who.className = 'who';
-        who.textContent = f.added_by;
-        item.appendChild(label);
-        item.appendChild(who);
-      } else {
-        item.appendChild(label);
-      }
+      label.textContent = name;                 // textContent：天然防 XSS
 
       var del = document.createElement('button');
       del.className = 'del';
       del.type = 'button';
       del.textContent = '✕';
-      del.setAttribute('aria-label', '删除 ' + f.name);
-      del.addEventListener('click', function () { removeFood(f, item); });
+      del.setAttribute('aria-label', '删除 ' + name);
+      del.addEventListener('click', function () {
+        foods.splice(i, 1);
+        write(KEY_FOODS, foods);
+        renderFoods();
+        updateExcludeInfo();
+      });
 
+      item.appendChild(label);
       item.appendChild(del);
       wrap.appendChild(item);
     });
@@ -728,7 +557,7 @@
     if (!history.length) {
       var e = document.createElement('div');
       e.className = 'hist-empty';
-      e.textContent = cloudOK ? '还没人抽过，快去试试手气 🎲' : '暂时拿不到记录';
+      e.textContent = '还没有抽过，快去试试手气 🎲';
       box.appendChild(e);
       return;
     }
@@ -744,180 +573,121 @@
       nm.className = 'name';
       nm.textContent = h.name;
 
-      row.appendChild(idx);
-      row.appendChild(nm);
-
-      if (h.drawn_by) {
-        var w = document.createElement('span');
-        w.className = 'who';
-        w.textContent = h.drawn_by;
-        row.appendChild(w);
-      }
-
       var tm = document.createElement('span');
       tm.className = 'time';
-      tm.textContent = shortTime(h.created_at);
-      row.appendChild(tm);
+      tm.textContent = h.time || '';
 
+      row.appendChild(idx);
+      row.appendChild(nm);
+      row.appendChild(tm);
       box.appendChild(row);
     });
   }
 
-  function shortTime(iso) {
-    if (!iso) return '';
-    var d = new Date(iso);
-    if (isNaN(d.getTime())) return '';
-    var diff = (Date.now() - d.getTime()) / 1000;
-    if (diff < 60) return '刚刚';
-    if (diff < 3600) return Math.floor(diff / 60) + ' 分钟前';
-    if (diff < 86400) return Math.floor(diff / 3600) + ' 小时前';
-    return (d.getMonth() + 1) + '月' + d.getDate() + '日';
-  }
-
-  function renderAll() {
-    renderFoods();
+  function pushHistory(name) {
+    var d = new Date();
+    var hh = ('0' + d.getHours()).slice(-2);
+    var mm = ('0' + d.getMinutes()).slice(-2);
+    history.unshift({ name: name, time: hh + ':' + mm });
+    if (history.length > 5) history = history.slice(0, 5);   // 只留最近 5 次
+    write(KEY_HIST, history);
     renderHistory();
-    updateExcludeInfo();
   }
 
+  function updateExcludeInfo() {
+    var info = $('excludeInfo');
+    if (!excludeOn) {
+      info.textContent = '开启后会避开上次的结果';
+      return;
+    }
+    if (foods.length <= 1) {
+      info.textContent = '菜单只有一个，无法避开';
+    } else if (lastPick) {
+      info.textContent = '已避开：' + lastPick;
+    } else {
+      info.textContent = '已开启，下次抽奖生效';
+    }
+  }
+
+  /* ============================================================
+     添加 / 删除食物
+     ============================================================ */
+  var foodInput = $('foodInput');
+
+  function addFood(name) {
+    name = (name || '').trim().replace(/\s+/g, ' ').slice(0, 12);
+    if (!name) { foodInput.focus(); return; }
+    if (foods.indexOf(name) !== -1) {
+      flashHint('「' + name + '」已经在菜单里了');
+      return;
+    }
+    foods.push(name);
+    write(KEY_FOODS, foods);
+    renderFoods();
+    updateExcludeInfo();
+    foodInput.value = '';
+    foodInput.focus();
+  }
+
+  $('addBtn').addEventListener('click', function () { addFood(foodInput.value); });
+  foodInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); addFood(foodInput.value); }
+  });
+
+  // 快捷标签
+  (function buildChips() {
+    var box = $('chips');
+    ['火锅', '烧烤', '螺蛳粉', '盖浇饭', '沙拉', '小笼包', '炸鸡', '咖喱饭'].forEach(function (s) {
+      var b = document.createElement('button');
+      b.className = 'chip';
+      b.type = 'button';
+      b.textContent = '+ ' + s;
+      b.addEventListener('click', function () { addFood(s); });
+      box.appendChild(b);
+    });
+  })();
+
+  /* ============================================================
+     抽奖：老虎机式减速滚动
+     ============================================================ */
+  var slotName = $('slotName');
   var slotHint = $('slotHint');
+  var spinBtn = $('spinBtn');
+  var againBtn = $('againBtn');
+  var verdict = $('verdict');
+  var excludeToggle = $('excludeToggle');
+
+  var spinning = false;
+  var lastPickBefore = null;
+
   function flashHint(text) {
     slotHint.textContent = text;
     clearTimeout(flashHint._t);
     flashHint._t = setTimeout(function () {
       slotHint.textContent = '点下面的按钮，让命运决定';
-    }, 3000);
+    }, 2600);
   }
 
-  function updateExcludeInfo() {
-    var info = $('excludeInfo');
-    if (!excludeOn) { info.textContent = '开启后会避开上次的结果'; return; }
-    if (foods.length <= 1) { info.textContent = '菜单只有一个，无法避开'; return; }
-    info.textContent = lastPick ? '已避开：' + lastPick : '已开启，下次抽奖生效';
-  }
-
-  /* ============================================================
-     6. 云端读写
-     ============================================================ */
-  function refreshFoods(silent) {
-    return fetchFoods().then(function (list) {
-      foods = list || [];
-      cloudOK = true;
-      lsSet(KEY_CACHE_F, foods);
-      renderFoods();
-      updateExcludeInfo();
-      if (!silent) setSync('ok', '已连接云端 · ' + foods.length + ' 道菜');
-      return foods;
-    }).catch(function (err) {
-      cloudOK = false;
-      var cached = lsGet(KEY_CACHE_F, null);
-      if (Array.isArray(cached) && cached.length && !foods.length) {
-        foods = cached;
-        renderFoods();
-      }
-      setSync('err', '云端读取失败');
-      if (!silent) flashHint('读取失败：' + friendly(err));
-      throw err;
-    });
-  }
-
-  function refreshHistory(silent) {
-    return fetchHistory().then(function (list) {
-      history = list || [];
-      lsSet(KEY_CACHE_H, history);
-      renderHistory();
-      return history;
-    }).catch(function (err) {
-      var cached = lsGet(KEY_CACHE_H, null);
-      if (Array.isArray(cached) && cached.length && !history.length) {
-        history = cached;
-        renderHistory();
-      }
-      if (!silent) flashHint('历史读取失败：' + friendly(err));
-      throw err;
-    });
-  }
-
-  function addFood(name) {
-    name = (name || '').trim().replace(/\s+/g, ' ').slice(0, 12);
-    if (!name) { $('foodInput').focus(); return; }
-    if (foods.some(function (f) { return f.name.toLowerCase() === name.toLowerCase(); })) {
-      flashHint('「' + name + '」已经在菜单里了');
-      return;
-    }
-
-    var btn = $('addBtn');
-    btn.disabled = true;
-    btn.textContent = '添加中';
-
-    insertFood(name, nick).then(function (rows) {
-      var created = (rows && rows[0]) || null;
-      if (created) {
-        foods.push(created);
-        renderFoods();
-        updateExcludeInfo();
-        syncCountText();
-      }
-      $('foodInput').value = '';
-      flashHint('已加进宿舍菜单：「' + name + '」');
-      // 拉一次确保和云端一致
-      return refreshFoods(true);
-    }).catch(function (err) {
-      if (err.status === 409) {
-        // 名字冲突（唯一索引），把最新列表拉下来
-        flashHint('「' + name + '」已经被室友加过了');
-        refreshFoods(true).catch(function () {});
-      } else {
-        flashHint('添加失败：' + friendly(err));
-      }
-    }).then(function () {
-      btn.disabled = false;
-      btn.textContent = '添加';
-      $('foodInput').focus();
-    });
-  }
-
-  function removeFood(f, itemEl) {
-    if (!confirm('把「' + f.name + '」从宿舍菜单里删掉？\n（所有人都看不到了）')) return;
-
-    itemEl.classList.add('pending');
-    deleteFood(f.id).then(function () {
-      foods = foods.filter(function (x) { return x.id !== f.id; });
-      renderFoods();
-      updateExcludeInfo();
-      syncCountText();
-      flashHint('已删除「' + f.name + '」');
-    }).catch(function (err) {
-      itemEl.classList.remove('pending');
-      flashHint('删除失败：' + friendly(err));
-    });
-  }
-
-  /* ============================================================
-     7. 抽奖
-     ============================================================ */
-  var slotName = $('slotName');
-  var spinBtn = $('spinBtn');
-  var againBtn = $('againBtn');
-  var verdict = $('verdict');
-  var spinning = false;
-  var lastPickBefore = null;
-
+  // 候选池：开启排除时过滤掉上次的结果
   function candidates() {
     if (!excludeOn || !lastPick || foods.length <= 1) return foods.slice();
-    var pool = foods.filter(function (f) { return f.name !== lastPick; });
+    var pool = foods.filter(function (f) { return f !== lastPick; });
+    // 极端情况：过滤后为空（理论上不会发生，因为 length>1 时才过滤）
     return pool.length ? pool : foods.slice();
   }
 
   function spin() {
     if (spinning) return;
 
-    if (!foods.length) {
-      flashHint('菜单是空的，先加几个菜吧');
+    if (foods.length === 0) {
+      flashHint('菜单是空的，先添加几个食物吧');
+      foodInput.focus();
       return;
     }
 
+    // 记下"抽之前"的那一次结果，用于结果里显示"已避开 XX"
     lastPickBefore = (excludeOn && lastPick) ? lastPick : null;
+
     spinning = true;
     spinBtn.disabled = true;
     againBtn.classList.remove('show');
@@ -925,12 +695,13 @@
     slotName.classList.add('rolling');
 
     var pool = candidates();
-    var finalFood = pool[Math.floor(Math.random() * pool.length)];
+    var finalName = pool[Math.floor(Math.random() * pool.length)];
 
+    // 滚动序列：先快后慢（老虎机手感），总时长约 1 秒
     var seq = [];
     var steps = 14;
-    for (var i = 0; i < steps; i++) seq.push(pool[Math.floor(Math.random() * pool.length)].name);
-    seq.push(finalFood.name);
+    for (var i = 0; i < steps; i++) seq.push(pool[Math.floor(Math.random() * pool.length)]);
+    seq.push(finalName);
 
     var totalMs = 1000;
     var weights = [], sumW = 0;
@@ -938,7 +709,7 @@
 
     var idx = 0;
     (function next() {
-      if (idx >= seq.length) return finish(finalFood);
+      if (idx >= seq.length) return finish(finalName);
       slotName.textContent = seq[idx];
       var delay = (weights[idx] / sumW) * totalMs;
       idx++;
@@ -946,36 +717,26 @@
     })();
   }
 
-  function finish(food) {
-    var name = food.name;
+  function finish(name) {
     slotName.textContent = name;
     slotName.classList.remove('rolling');
     slotName.classList.add('win');
 
     lastPick = name;
-    lsSet(KEY_LAST, lastPick);
+    write(KEY_LAST, lastPick);
+    pushHistory(name);
     updateExcludeInfo();
 
     spinning = false;
     spinBtn.disabled = false;
     againBtn.classList.add('show');
 
-    // 先把结果展示出来，再去写云端历史（不让网络拖慢手感）
     showVerdict(name);
-
-    insertHistory(name, nick).then(function () {
-      $('verdictCloud').textContent = '✓ 已记入宿舍历史';
-      return refreshHistory(true);
-    }).catch(function (err) {
-      $('verdictCloud').textContent = '⚠ 历史未写入：' + friendly(err);
-    });
   }
 
   function showVerdict(name) {
     $('verdictName').textContent = name;
     $('verdictEmoji').textContent = EMOJI_FOR[name] || '🍽️';
-    $('verdictCloud').textContent = '正在记录…';
-
     var subs = [
       '别犹豫了，就它吧！',
       '命运的旨意，无法违抗 ✨',
@@ -999,7 +760,7 @@
   };
 
   function burstConfetti() {
-    if (reduceMotion) return;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     var EMOJI = ['🎉', '✨', '🍜', '🍕', '🍣', '🥳', '⭐', '🍰'];
     for (var i = 0; i < 18; i++) {
       var s = document.createElement('span');
@@ -1009,7 +770,9 @@
       s.style.fontSize = (16 + Math.random() * 16).toFixed(0) + 'px';
       s.style.animationDuration = (1.6 + Math.random() * 1.4).toFixed(2) + 's';
       document.body.appendChild(s);
-      (function (node) { setTimeout(function () { node.remove(); }, 3200); })(s);
+      (function (node) {
+        setTimeout(function () { node.remove(); }, 3200);
+      })(s);
     }
   }
 
@@ -1021,124 +784,37 @@
   $('retryBtn').addEventListener('click', function () { closeVerdict(); spin(); });
   verdict.addEventListener('click', function (e) { if (e.target === verdict) closeVerdict(); });
 
-  $('addBtn').addEventListener('click', function () { addFood($('foodInput').value); });
-  $('foodInput').addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') { e.preventDefault(); addFood($('foodInput').value); }
-  });
-
-  var nickInput = $('nickInput');
-  nickInput.value = nick;
-  nickInput.addEventListener('change', function () {
-    nick = nickInput.value.trim().slice(0, 12);
-    lsSet(KEY_NICK, nick);
-    flashHint(nick ? '好，以后署名：' + nick : '已清空昵称');
-  });
-
-  var excludeToggle = $('excludeToggle');
   excludeToggle.checked = excludeOn;
   excludeToggle.addEventListener('change', function () {
     excludeOn = excludeToggle.checked;
-    lsSet(KEY_EXCLUDE, excludeOn);
+    write(KEY_EXCLUDE, excludeOn);
     updateExcludeInfo();
     flashHint(excludeOn ? '已开启：会避开上次吃过的' : '已关闭：完全随机');
   });
 
-  $('refreshBtn').addEventListener('click', function () {
-    setSync('local', '正在刷新…');
-    refreshFoods(true).then(function () { refreshHistory(true); setSync('ok', '已连接云端 · ' + foods.length + ' 道菜'); })
-      .catch(function () { setSync('err', '刷新失败'); });
-  });
-  $('refreshHistBtn').addEventListener('click', function () {
-    refreshHistory(false).catch(function () {});
+  $('clearHistBtn').addEventListener('click', function () {
+    history = [];
+    write(KEY_HIST, history);
+    renderHistory();
+    flashHint('历史记录已清空');
   });
 
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') closeVerdict();
-    if (e.code === 'Space' && document.activeElement !== $('foodInput') &&
-        document.activeElement !== nickInput) {
+    // 空格键快捷抽奖（输入框里不触发）
+    if (e.code === 'Space' && document.activeElement !== foodInput) {
       e.preventDefault();
       spin();
     }
   });
 
-  /* 快捷标签 */
-  (function buildChips() {
-    var box = $('chips');
-    ['火锅', '烧烤', '螺蛳粉', '盖浇饭', '沙拉', '小笼包', '炸鸡', '咖喱饭'].forEach(function (s) {
-      var b = document.createElement('button');
-      b.className = 'chip';
-      b.type = 'button';
-      b.textContent = '+ ' + s;
-      b.addEventListener('click', function () { addFood(s); });
-      box.appendChild(b);
-    });
-  })();
-
-  /* 漂浮食物 */
-  (function buildFloaties() {
-    var layer = $('floaties');
-    var EMOJI = ['🍜', '🍕', '🍣', '🍔', '🥟', '🍢', '🍚', '🌮', '🍤', '🥘', '🍰', '🍩'];
-    var n = window.innerWidth < 480 ? 12 : 18;
-    var frag = document.createDocumentFragment();
-    for (var i = 0; i < n; i++) {
-      var s = document.createElement('span');
-      s.className = 'floaty';
-      s.textContent = EMOJI[i % EMOJI.length];
-      s.style.left = (Math.random() * 96) + '%';
-      s.style.fontSize = (16 + Math.random() * 26).toFixed(0) + 'px';
-      s.style.animationDuration = (16 + Math.random() * 18).toFixed(1) + 's';
-      s.style.animationDelay = (-Math.random() * 30).toFixed(1) + 's';
-      frag.appendChild(s);
-    }
-    layer.appendChild(frag);
-  })();
-
   /* ============================================================
-     8. 启动：加载云端数据 + 轮询同步
+     启动
      ============================================================ */
-  setSync('local', '正在连接云端…');
-
-  // 先用缓存立刻渲染，避免白屏
-  var cachedF = lsGet(KEY_CACHE_F, null);
-  if (Array.isArray(cachedF) && cachedF.length) { foods = cachedF; renderFoods(); }
-  var cachedH = lsGet(KEY_CACHE_H, null);
-  if (Array.isArray(cachedH) && cachedH.length) { history = cachedH; renderHistory(); }
-
-  refreshFoods(false).catch(function () {});
-  refreshHistory(true).catch(function () {});
-
-  // 轮询：室友加了菜，最多 10 秒后自动出现
-  // 页面切到后台时暂停，省流量；切回来立刻同步一次
-  var lastFoodCount = -1;
-
-  function poll() {
-    if (document.hidden) return;
-    fetchFoods().then(function (list) {
-      var n = (list || []).length;
-      if (n !== lastFoodCount || lastFoodCount === -1) {
-        lastFoodCount = n;
-        foods = list || [];
-        cloudOK = true;
-        lsSet(KEY_CACHE_F, foods);
-        renderFoods();
-        updateExcludeInfo();
-        syncCountText();
-      }
-    }).catch(function () {
-      cloudOK = false;
-      setSync('err', '云端已断开');
-    });
-    fetchHistory().then(function (list) {
-      history = list || [];
-      lsSet(KEY_CACHE_H, history);
-      renderHistory();
-    }).catch(function () {});
-  }
-
-  setInterval(poll, POLL_MS);
-  document.addEventListener('visibilitychange', function () {
-    if (!document.hidden) poll();      // 切回来立刻同步一次
-  });
+  renderFoods();
+  renderHistory();
+  updateExcludeInfo();
+  if (lastPick) slotName.textContent = lastPick;
 })();
 </script>
 </body>
